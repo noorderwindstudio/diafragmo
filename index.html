@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Frame – prototype voor zzp-videomakers</title>
+  <meta name="description" content="Klikbaar prototype van Frame, projectbeheer voor zelfstandige videomakers. Alle data is fictief.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314151a'/%3E%3Crect x='8' y='8' width='16' height='16' rx='2' fill='none' stroke='%23ff6a3d' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="proto-banner" role="note"><strong>Prototype – voorbeelddata</strong><span class="hide-sm"> · alle namen, bedragen en bestanden zijn fictief · gemaakt door noorderwind.app</span></div>
+
+  <div id="app">
+    <aside id="sidebar" aria-label="Hoofdmenu">
+      <a class="logo" href="#/dashboard" aria-label="Frame – naar dashboard"><span class="logo-mark"></span><span>Frame</span></a>
+      <nav class="nav">
+        <a class="nav-item" data-nav="dashboard" data-ic="home" href="#/dashboard"><span>Dashboard</span></a>
+        <a class="nav-item" data-nav="projecten" data-ic="folder" href="#/projecten"><span>Projecten</span></a>
+        <a class="nav-item" data-nav="review" data-ic="play" href="#/review/p1"><span>Review</span><em class="nav-badge">3</em></a>
+        <a class="nav-item" data-nav="financien" data-ic="euro" href="#/financien"><span>Offertes & facturen</span></a>
+        <a class="nav-item" data-nav="showreel" data-ic="film" href="#/showreel"><span>Showreel</span></a>
+        <a class="nav-item" data-nav="klant" data-ic="eye" href="#/klant/p1"><span>Klantportaal</span></a>
+        <a class="nav-item" data-nav="instellingen" data-ic="settings" href="#/instellingen"><span>Instellingen</span></a>
+      </nav>
+      <div class="side-foot">
+        <div class="me"><span class="avatar">SV</span><div><div class="strong">Sanne de Vries</div><div class="tiny">Sanne de Vries Video · Pro</div></div></div>
+        <div class="tiny made">Prototype door noorderwind.app</div>
+      </div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <button class="icon-btn nav-toggle" data-action="toggle-nav" data-ic="menu" aria-label="Menu openen"></button>
+        <label class="search" data-ic="search"><input id="global-search" type="search" placeholder="Zoek projecten of klanten… (Enter)" aria-label="Zoeken"></label>
+        <div class="top-actions">
+          <a id="topbar-client" class="btn ghost" data-ic="eye" href="#/klant/p1"><span class="hide-sm">Bekijk als klant</span></a>
+          <button class="btn primary" data-action="new-project" data-ic="plus"><span class="hide-sm">Nieuw project</span></button>
+        </div>
+      </header>
+      <main id="view" tabindex="-1"></main>
+      <footer class="app-foot">Frame · prototype – voorbeelddata · gemaakt door <a href="https://noorderwind.app" target="_blank" rel="noopener">noorderwind.app</a></footer>
+    </div>
+    <div class="nav-scrim" data-action="toggle-nav"></div>
+  </div>
+
+  <div id="external"></div>
+  <div id="modal-root"></div>
+  <div id="toast-root" aria-live="polite"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
