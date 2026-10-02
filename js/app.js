@@ -1,4 +1,4 @@
-/* Frame – klikbaar prototype (front-end only). Geen backend, alle data is fictief. */
+/* Diafragmo – klikbaar prototype (front-end only). Geen backend, alle data is fictief. */
 (function () {
   'use strict';
   const D = window.FRAME_DATA;
@@ -594,7 +594,7 @@
   // ---------- Klantportaal ----------
   const CLIENT_STEPS = ['Aanvraag', 'Offerte', 'Voorbereiding', 'Opnames', 'Montage', 'Jouw feedback', 'Opgeleverd'];
   function portalBar(p, label, backHref, backLabel) {
-    return `<div class="preview-bar">${icon('eye')}<span>${label}</span><a class="btn sm" href="${backHref || '#/project/' + p.id + '/planning'}">${icon('arrowLeft')} ${backLabel || 'Terug naar Frame'}</a></div>`;
+    return `<div class="preview-bar">${icon('eye')}<span>${label}</span><a class="btn sm" href="${backHref || '#/project/' + p.id + '/planning'}">${icon('arrowLeft')} ${backLabel || 'Terug naar Diafragmo'}</a></div>`;
   }
   function portalInvoice(p) {
     const inv = S.invoices.find(i => i.projectId === p.id && i.status !== 'Concept');
@@ -664,7 +664,7 @@
           <button class="btn ghost block sm" data-action="download" data-name="${esc(inv.nr)}.pdf">${icon('file')} Factuur als PDF</button>
         </section>
       </div>
-      <footer class="portal-foot">Klantportaal van ${esc(D.studio.naam)} · aangedreven door <strong>Frame</strong> · Prototype – voorbeelddata</footer>
+      <footer class="portal-foot">Klantportaal van ${esc(D.studio.naam)} · aangedreven door <strong>Diafragmo</strong> · Prototype – voorbeelddata</footer>
     </div>`;
   }
   function fakeUpload(name, size) {
@@ -863,7 +863,7 @@
       </section>
       ${mini ? '' : `<section class="site-about" id="site-over"><h2>Over mij</h2><p>Al ruim acht jaar maak ik video's voor mkb, gemeenten en evenementen. Van eerste idee tot de laatste export: één aanspreekpunt, heldere planning en een vaste prijs vooraf.</p></section>`}
       ${sr.formulier ? (mini ? `<section class="site-form-mini"><div class="strong small">Project aanvragen</div><div class="fake-input"></div><div class="fake-input"></div><div class="fake-btn"></div></section>` : publicForm()) : ''}
-      <footer class="site-foot">© 2026 ${esc(sr.titel)} · ${esc(sr.domein)} · gemaakt met Frame</footer>`;
+      <footer class="site-foot">© 2026 ${esc(sr.titel)} · ${esc(sr.domein)} · gemaakt met Diafragmo</footer>`;
   }
   function publicForm() {
     const sent = S.showreelSent;
@@ -871,8 +871,8 @@
       return `<section class="site-form" id="site-form"><div class="sent">
         <div class="paid-check">${icon('check')}</div>
         <h2>Bedankt, ${esc(sent.naam)}!</h2><p>Je aanvraag is verstuurd. ${esc(S.showreel.titel)} neemt binnen twee werkdagen contact met je op.</p>
-        <div class="maker-note"><div class="tiny muted">Ondertussen in Frame (wat de videomaker ziet):</div><div class="strong ok-text">${icon('check')} Nieuw project aangemaakt</div><div class="small">“${esc(sent.titel)}” voor ${esc(sent.klant)} · status <strong>Aanvraag</strong></div>
-          <div class="row gap"><a class="btn sm primary" href="#/project/${sent.id}/planning">Open in Frame</a><button class="btn sm ghost" data-action="reset-form">Nog een aanvraag</button></div></div>
+        <div class="maker-note"><div class="tiny muted">Ondertussen in Diafragmo (wat de videomaker ziet):</div><div class="strong ok-text">${icon('check')} Nieuw project aangemaakt</div><div class="small">“${esc(sent.titel)}” voor ${esc(sent.klant)} · status <strong>Aanvraag</strong></div>
+          <div class="row gap"><a class="btn sm primary" href="#/project/${sent.id}/planning">Open in Diafragmo</a><button class="btn sm ghost" data-action="reset-form">Nog een aanvraag</button></div></div>
       </div></section>`;
     }
     return `<section class="site-form" id="site-form"><h2>Project aanvragen</h2><p class="muted small">Vertel kort over je plannen, dan ontvang je snel een voorstel.</p>

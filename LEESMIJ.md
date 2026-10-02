@@ -1,4 +1,4 @@
-# Frame – klikbaar prototype (noorderwind.app)
+# Diafragmo – klikbaar prototype (noorderwind.app)
 
 Front-end-only prototype voor zzp-videomakers. **Alle data is fictief (voorbeelddata).** Geen backend: wat je invult blijft alleen in het geheugen staan, en na herladen begin je weer opnieuw.
 

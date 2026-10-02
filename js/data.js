@@ -1,4 +1,4 @@
-/* Frame – prototype. ALLE data hieronder is fictief (voorbeelddata). */
+/* Diafragmo – prototype. ALLE data hieronder is fictief (voorbeelddata). */
 window.FRAME_DATA = (function () {
   const STATUSES = ['Aanvraag', 'Offerte', 'Pre-productie', 'Opname', 'Montage', 'Feedback', 'Opgeleverd'];
 
