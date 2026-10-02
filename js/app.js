@@ -39,7 +39,9 @@
       sig: 'Sanne de Vries\nSanne de Vries Video · videoproductie in Zwolle\nsannedevries.nl',
       templates: null, threads: JSON.parse(JSON.stringify(D.emails))
     },
-    timer: null
+    timer: null,
+    tkAtt: null,
+    tkFilter: { status: 'Alle', cat: 'Alle' }
   };
   const DEFAULT_TPL = {
     offerte: { naam: 'Offerte', onderwerp: 'Offerte {documentnr} – {project}', body: 'Hoi {voornaam},\n\nBedankt voor het fijne gesprek! In de bijlage vind je de offerte voor “{project}” ({bedrag} incl. btw).\n\nIn je persoonlijke klantportaal bekijk je de offerte en geef je met één klik akkoord:\n{portaallink}\n\nVragen of iets aanpassen? Laat het gerust weten.\n\nHartelijke groet,\nSanne' },
@@ -108,7 +110,12 @@
     arrowLeft: '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
     moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
-    monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'
+    monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+    info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="11"/><line x1="12" y1="7.5" x2="12.01" y2="7.5"/>',
+    sparkle: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7z"/>',
+    inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+    paperclip: '<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+    bug: '<rect x="8" y="6" width="8" height="14" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 19l-3-2M5 19l3-2M20 13h-4M4 13h4M10 3.5l1 2.5M14 3.5l-1 2.5"/>'
   };
   function icon(n, cls) { return `<svg class="ic ${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`; }
 
@@ -259,6 +266,7 @@
     cleanupFns.forEach(f => { try { f(); } catch (e) { /* noop */ } });
     cleanupFns = [];
     closeModal();
+    closeInfo(false);
     document.body.classList.remove('nav-open');
     const r = route();
     let external = false, html = '', mount = null, nav = r.name;
@@ -285,6 +293,13 @@
         html = r.b === 'betaald' ? viewPaid(p) : viewPortal(p); mount = () => mountPortal(p); break;
       }
       case 'instellingen': html = viewSettings(); if (r.a === 'email' || r.a === 'hosting') mount = () => { const el = $(r.a === 'email' ? '#email-settings' : '#hosting-privacy'); if (el) el.scrollIntoView(); }; break;
+      case 'support':
+        nav = '';
+        if (r.a === 'nieuw') html = viewSupportNew();
+        else if (r.a === 'ticket') { const t = ticket(r.b); html = t && t.eigen ? viewTicket(t, false) : viewNotFound(); }
+        else html = viewSupportList();
+        break;
+      case 'beheer': nav = ''; html = r.a === 'support' && r.b ? viewTicket(ticket(r.b), true) : viewBeheer(); break;
       default: html = viewNotFound();
     }
     document.body.classList.toggle('external-mode', external);
@@ -1302,6 +1317,254 @@
   }
   function viewNotFound() { return `<div class="empty card">${icon('search')}<h2>Pagina niet gevonden</h2><p class="muted">Deze pagina bestaat niet in het prototype.</p><a class="btn primary" href="#/dashboard">Naar dashboard</a></div>`; }
 
+  // ---------- Info-menu, versie, nieuws & support (demo, bewaard in localStorage) ----------
+  const APP_VERSIE = '0.3.0', APP_BUILD = '2026-10-03';
+  const NEWS_KEY = 'diafragmo-nieuws-gelezen', TICKETS_KEY = 'diafragmo-tickets';
+  const versieLabel = () => `Versie ${APP_VERSIE} (prototype)`;
+  const buildLabel = () => `build ${fdate(APP_BUILD)}`;
+  const p2 = n => String(n).padStart(2, '0');
+  const nowLocal = () => { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}T${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`; };
+  const fdt = s => { const d = new Date(s); return isNaN(d) ? esc(s) : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+  const fdtShort = s => { const d = new Date(s); if (isNaN(d)) return esc(s); const n = new Date(); return d.toDateString() === n.toDateString() ? `vandaag ${p2(d.getHours())}:${p2(d.getMinutes())}` : `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
+  const CHANGELOG = [
+    { v: '0.3.0', datum: '2026-10-03', items: [
+      ['sun', 'Licht en donker thema', 'Volgt automatisch je systeeminstelling. Wisselen kan met de knop in de topbalk of via Instellingen → Weergave.'],
+      ['eye', 'Logo past zich aan per thema', 'Het diafragma-beeldmerk en het woordmerk kleuren mee met de achtergrond, ook in het klantportaal.'],
+      ['msg', 'Info-menu en support', 'Versie-informatie, dit overzicht en een supportformulier met al je tickets op één plek.']
+    ] },
+    { v: '0.2.1', datum: '2026-10-02', items: [
+      ['shield', 'Soevereine EU-hosting zichtbaar', 'Nieuwe kaart Hosting & privacy in Instellingen en een EU-label in het klantportaal: je data blijft in Europa.'],
+      ['film', 'Nieuw logo en app-icoon', 'Het diafragma-beeldmerk in de zijbalk, als favicon en in het aanmeldscherm van Microsoft en Google.']
+    ] },
+    { v: '0.2.0', datum: '2026-10-02', items: [
+      ['send', 'E-mailkoppeling met Microsoft 365 en Gmail', 'Verstuur offertes, facturen en herinneringen vanaf je eigen adres, met sjablonen en een tab E-mail per project (gesimuleerd).']
+    ] }
+  ];
+  const newsUnread = () => { try { return localStorage.getItem(NEWS_KEY) !== APP_VERSIE; } catch (e) { return true; } };
+  function markNewsRead() { try { localStorage.setItem(NEWS_KEY, APP_VERSIE); } catch (e) { /* noop */ } updateInfoBadges(); }
+
+  // Tickets
+  const TK_STATUSES = ['Open', 'In behandeling', 'Wacht op jou', 'Opgelost'];
+  const TK_CATS = ['Vraag', 'Bug', 'Idee', 'Facturatie'];
+  const TK_PRIOS = ['Laag', 'Normaal', 'Hoog'];
+  const TK_CAT_IC = { Vraag: 'info', Bug: 'bug', Idee: 'sparkle', Facturatie: 'euro' };
+  const TK_AGENTS = ['Niet toegewezen', 'Noor · Noorderwind Studio', 'Lars · Noorderwind Studio'];
+  const SUPPORT_NAAM = 'Diafragmo support · Noorderwind Studio';
+  const tkStatusLabel = (s, beheer) => beheer && s === 'Wacht op jou' ? 'Wacht op gebruiker' : s;
+  const tkPill = (s, beheer) => `<span class="pill tk-${slug(s)}">${esc(tkStatusLabel(s, beheer))}</span>`;
+  const prio = p => `<span class="prio prio-${slug(p)}">${esc(p)}</span>`;
+  function seedTickets() {
+    const sanne = { eigen: true, van: 'Sanne de Vries', bedrijf: D.studio.naam, email: D.studio.email };
+    return [
+      Object.assign({ nr: 1005, onderwerp: 'Upload 4K-master blijft hangen op 99%', categorie: 'Bug', prioriteit: 'Hoog', status: 'Open', toegewezen: TK_AGENTS[0], aangemaakt: '2026-10-02T23:41:00', bijgewerkt: '2026-10-02T23:41:00', meta: 'Diafragmo 0.2.1 (prototype) · Firefox 141 · Windows · venster 1920×1080 · licht thema' },
+        { eigen: false, van: 'Mila Jansen', bedrijf: 'Studio Mila (fictief)', email: 'mila@studiomila.voorbeeld', berichten: [
+          { rol: 'gebruiker', naam: 'Mila Jansen', tijd: '2026-10-02T23:41:00', tekst: 'Bij het uploaden van een 4K-master van 6,2 GB blijft de voortgangsbalk op 99% staan. Kleinere bestanden gaan wel goed. Ik gebruik Firefox op Windows.', bijlage: { naam: 'upload-99-procent.png', grootte: '288 KB' } }] }),
+      Object.assign({ nr: 1004, onderwerp: 'Kan ik twee handelsnamen in één account beheren?', categorie: 'Vraag', prioriteit: 'Normaal', status: 'Open', toegewezen: TK_AGENTS[0], aangemaakt: '2026-10-02T21:14:00', bijgewerkt: '2026-10-02T21:14:00', meta: 'Diafragmo 0.2.1 (prototype) · Chrome 154 · macOS · venster 1512×945 · donker thema' },
+        { eigen: false, van: 'Joris Kuiper', bedrijf: 'Kuiper Films (fictief)', email: 'joris@kuiperfilms.voorbeeld', berichten: [
+          { rol: 'gebruiker', naam: 'Joris Kuiper', tijd: '2026-10-02T21:14:00', tekst: "Ik werk als zzp'er onder mijn eigen naam en sinds kort ook met een compagnon onder een tweede handelsnaam. Kan ik beide in één Diafragmo-account beheren, met aparte facturen en huisstijl?" }] }),
+      Object.assign({ nr: 1003, onderwerp: 'Idee: draaiboek als PDF delen met de crew', categorie: 'Idee', prioriteit: 'Laag', status: 'In behandeling', toegewezen: TK_AGENTS[1], aangemaakt: '2026-09-29T20:31:00', bijgewerkt: '2026-09-30T10:02:00', meta: 'Diafragmo 0.2.0 (prototype) · Safari 18 · macOS · venster 1440×900 · licht thema' }, sanne, { berichten: [
+          { rol: 'gebruiker', naam: 'Sanne de Vries', tijd: '2026-09-29T20:31:00', tekst: 'Zou het kunnen om het draaiboek van een draaidag als nette PDF te exporteren? Dan stuur ik die de avond ervoor naar mijn geluidsman en drone-piloot.' },
+          { rol: 'support', naam: SUPPORT_NAAM, agent: 'Noor', tijd: '2026-09-30T10:02:00', tekst: 'Goed idee, dank je! We horen dit vaker. We hebben het op de planning gezet voor een van de volgende versies en houden je via dit ticket op de hoogte.' },
+          { rol: 'systeem', veld: 'status', naar: 'In behandeling', tijd: '2026-09-30T10:02:00' }] }),
+      Object.assign({ nr: 1002, onderwerp: 'Reviewlink opent niet op iPhone van klant', categorie: 'Bug', prioriteit: 'Hoog', status: 'Wacht op jou', toegewezen: TK_AGENTS[2], aangemaakt: '2026-10-01T16:48:00', bijgewerkt: '2026-10-02T09:20:00', meta: 'Diafragmo 0.2.1 (prototype) · Safari 18 · macOS · venster 1440×900 · licht thema' }, sanne, { berichten: [
+          { rol: 'gebruiker', naam: 'Sanne de Vries', tijd: '2026-10-01T16:48:00', tekst: 'Mijn klant Ingrid (Bakkerij Van Dam) krijgt een wit scherm als ze de reviewlink voor v3 opent op haar iPhone. Op haar laptop werkt het wel. Een screenshot van haar scherm zit erbij.', bijlage: { naam: 'screenshot-iphone-ingrid.png', grootte: '612 KB' } },
+          { rol: 'systeem', veld: 'status', naar: 'In behandeling', tijd: '2026-10-02T09:05:00' },
+          { rol: 'support', naam: SUPPORT_NAAM, agent: 'Lars', tijd: '2026-10-02T09:20:00', tekst: 'Hoi Sanne, vervelend! We konden het nog niet nadoen op iOS 18 met Safari. Weet je welke iOS-versie Ingrid gebruikt, en of ze de link opent vanuit de Mail-app of vanuit WhatsApp? Dan testen we precies haar situatie.' },
+          { rol: 'systeem', veld: 'status', naar: 'Wacht op jou', tijd: '2026-10-02T09:20:00' }] }),
+      Object.assign({ nr: 1001, onderwerp: 'Factuur F2026-031 staat dubbel in Moneybird', categorie: 'Facturatie', prioriteit: 'Normaal', status: 'Opgelost', toegewezen: TK_AGENTS[1], aangemaakt: '2026-09-24T10:12:00', bijgewerkt: '2026-09-24T13:06:00', meta: 'Diafragmo 0.2.0 (prototype) · Chrome 153 · macOS · venster 1440×900 · licht thema' }, sanne, { berichten: [
+          { rol: 'gebruiker', naam: 'Sanne de Vries', tijd: '2026-09-24T10:12:00', tekst: 'Hoi! Factuur F2026-031 (Gemeente Zwolle) staat sinds vanochtend twee keer in Moneybird. In Diafragmo zie ik hem maar één keer. Kunnen jullie kijken wat er misging?' },
+          { rol: 'support', naam: SUPPORT_NAAM, agent: 'Noor', tijd: '2026-09-24T11:40:00', tekst: 'Hoi Sanne, dank voor je melding! De synchronisatie met Moneybird is vannacht door een time-out twee keer gestart. We hebben de dubbele factuur in Moneybird teruggezet naar concept, zodat je hem kunt verwijderen, en de koppeling aangepast zodat dit niet meer kan gebeuren. Staat het zo goed?' },
+          { rol: 'gebruiker', naam: 'Sanne de Vries', tijd: '2026-09-24T13:05:00', tekst: 'Staat goed nu, top. Bedankt voor de snelle hulp!' },
+          { rol: 'systeem', veld: 'status', naar: 'Opgelost', tijd: '2026-09-24T13:06:00' }] })
+    ];
+  }
+  let TK = null;
+  function tickets() {
+    if (!TK) { try { TK = JSON.parse(localStorage.getItem(TICKETS_KEY)); } catch (e) { TK = null; } if (!Array.isArray(TK)) { TK = seedTickets(); saveTickets(); } }
+    return TK;
+  }
+  function saveTickets() { try { localStorage.setItem(TICKETS_KEY, JSON.stringify(TK)); } catch (e) { /* privémodus: alleen in geheugen */ } updateInfoBadges(); }
+  const ticket = nr => tickets().find(t => String(t.nr) === String(nr));
+  const tkOpenCount = () => tickets().filter(t => t.status === 'Open').length;
+  const tkWachtCount = () => tickets().filter(t => t.eigen && t.status === 'Wacht op jou').length;
+  function browserInfo() {
+    const ua = navigator.userAgent; let m, b = 'onbekende browser';
+    if ((m = ua.match(/Edg\/(\d+)/))) b = 'Edge ' + m[1];
+    else if ((m = ua.match(/Firefox\/(\d+)/))) b = 'Firefox ' + m[1];
+    else if ((m = ua.match(/(?:Chrome|CriOS)\/(\d+)/))) b = 'Chrome ' + m[1];
+    else if ((m = ua.match(/Version\/(\d+).*Safari/))) b = 'Safari ' + m[1];
+    const os = /iPhone|iPad/.test(ua) ? 'iOS' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'macOS' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : 'onbekend systeem';
+    return `Diafragmo ${APP_VERSIE} (prototype) · ${b} · ${os} · venster ${window.innerWidth}×${window.innerHeight} · ${themeEffective() === 'dark' ? 'donker' : 'licht'} thema`;
+  }
+
+  // Info-menu (dropdown linksboven in de topbalk)
+  function infoMenuHtml() {
+    const open = tkOpenCount(), wacht = tkWachtCount(), unread = newsUnread();
+    return `<div class="info-dd-head"><img class="info-dd-mark" src="img/beeldmerk.svg" alt=""><div><div class="strong">Diafragmo</div><div class="tiny muted">${versieLabel()} · ${buildLabel()}</div></div></div>
+      <button type="button" class="info-item" role="menuitem" data-action="info-about">${icon('info')}<span class="grow">Over Diafragmo</span></button>
+      <button type="button" class="info-item" role="menuitem" data-action="info-news">${icon('sparkle')}<span class="grow">Nieuw in deze versie</span>${unread ? '<span class="info-new">Nieuw</span>' : ''}</button>
+      <div class="info-sep" role="separator"></div>
+      <a class="info-item" role="menuitem" href="#/support/nieuw">${icon('msg')}<span class="grow">Support</span><span class="tiny muted">ticket maken</span></a>
+      <a class="info-item" role="menuitem" href="#/support">${icon('file')}<span class="grow">Mijn tickets</span>${wacht ? `<span class="info-count" title="Wacht op jouw reactie">${wacht}</span>` : ''}</a>
+      <div class="info-sep" role="separator"></div>
+      <a class="info-item" role="menuitem" href="#/beheer/support">${icon('inbox')}<span class="grow">Support-inbox (beheerder)<span class="tiny muted info-sub">Alleen voor beheerders · demo</span></span>${open ? `<span class="info-count ink" title="Open tickets">${open}</span>` : ''}</a>`;
+  }
+  const infoOpen = () => { const dd = $('#info-dropdown'); return !!dd && !dd.hidden; };
+  function openInfo() {
+    const dd = $('#info-dropdown'), b = $('#info-btn'); if (!dd) return;
+    dd.innerHTML = infoMenuHtml(); dd.hidden = false; b.setAttribute('aria-expanded', 'true');
+    const f = $('.info-item', dd); if (f) f.focus({ preventScroll: true });
+  }
+  function closeInfo(focusBtn) {
+    const dd = $('#info-dropdown'), b = $('#info-btn'); if (!dd || dd.hidden) return;
+    dd.hidden = true; b.setAttribute('aria-expanded', 'false'); if (focusBtn) b.focus();
+  }
+  function updateInfoBadges() {
+    const dot = $('#info-btn .info-dot'); if (dot) dot.hidden = !newsUnread();
+    const dd = $('#info-dropdown'); if (dd && !dd.hidden) dd.innerHTML = infoMenuHtml();
+  }
+  document.addEventListener('click', e => {
+    if (!infoOpen() || e.target.closest('#info-btn')) return;
+    if (e.target.closest('#info-dropdown') && !e.target.closest('.info-item')) return;
+    closeInfo(false);
+  });
+  document.addEventListener('keydown', e => {
+    if (!infoOpen()) return;
+    if (e.key === 'Escape') { closeInfo(true); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
+      e.preventDefault(); const items = $$('#info-dropdown .info-item'); const i = items.indexOf(document.activeElement);
+      const n = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : e.key === 'ArrowDown' ? (i + 1) % items.length : (i - 1 + items.length) % items.length;
+      items[n].focus();
+    }
+  });
+
+  function aboutModal() {
+    modal({
+      title: 'Over Diafragmo', body: `<div class="about">
+        <div class="about-head"><img class="about-icon" src="img/app-icoon.svg" alt=""><div><div class="about-name">diafragmo</div><div class="small muted">${versieLabel()} · ${buildLabel()}</div></div></div>
+        <p>Diafragmo is projectbeheer voor zelfstandige videomakers: van aanvraag en offerte via draaidagen en review op timecode tot oplevering en factuur met iDEAL – in één overzicht, met een eigen klantportaal voor je klanten.</p>
+        <p class="small">Gemaakt door <a class="link" href="https://noorderwind.app" target="_blank" rel="noopener">Noorderwind Studio</a>.</p>
+        <div class="about-eu">${euBadge('eu-flag')}<span><strong>Soevereine hosting in de EU</strong> – je video's, bestanden en klantgegevens blijven in Europa.</span></div>
+        <ul class="about-links">
+          <li>${icon('globe')}<a class="link" href="https://noorderwindstudio.github.io/diafragmo/" target="_blank" rel="noopener">Prototype openen in een nieuw tabblad</a></li>
+          <li>${icon('sparkle')}<a class="link" href="#/dashboard" data-action="info-news">Nieuw in deze versie</a></li>
+          <li>${icon('msg')}<a class="link" href="#/support/nieuw">Contact met support</a></li>
+        </ul>
+        <p class="tiny muted">Dit is een klikbaar prototype met fictieve voorbeelddata. Er wordt niets echt verstuurd, opgeslagen of afgeschreven.</p></div>`,
+      actions: [{ label: 'Sluiten', cls: 'primary', onClick: closeModal }]
+    });
+  }
+  function newsModal() {
+    markNewsRead();
+    modal({
+      title: 'Nieuw in deze versie', body: CHANGELOG.map((c, i) => `<section class="cl-ver">
+          <div class="cl-head"><span class="vtag">v${c.v}</span><span class="small muted">${fdate(c.datum)}</span>${i === 0 ? '<span class="pill inv-betaald">Huidige versie</span>' : ''}</div>
+          <ul class="cl-list">${c.items.map(it => `<li>${icon(it[0])}<div><strong>${esc(it[1])}</strong><span>${esc(it[2])}</span></div></li>`).join('')}</ul></section>`).join('') +
+        `<p class="tiny muted">Prototype – versienummers en data zijn indicatief.</p>`,
+      actions: [{ label: 'Feedback of vraag?', cls: 'ghost', onClick: () => go('#/support/nieuw') }, { label: 'Sluiten', cls: 'primary', onClick: closeModal }]
+    });
+  }
+
+  // Support – gebruikerskant
+  function supportHead() {
+    return `<div class="page-head"><div><h1>Support</h1><p class="muted">Een vraag, bug of idee? Het Diafragmo-team van Noorderwind Studio reageert meestal binnen één werkdag.</p></div><div class="head-actions"><a class="btn primary" href="#/support/nieuw">${icon('plus')} Nieuw ticket</a></div></div>`;
+  }
+  function supportTabs(active) {
+    const n = tickets().filter(t => t.eigen).length, w = tkWachtCount();
+    return `<nav class="tabs" aria-label="Support"><a class="tab ${active === 'lijst' ? 'active' : ''}" href="#/support">Mijn tickets <span class="muted">(${n})</span>${w ? `<span class="tab-badge" title="Wacht op jou">${w}</span>` : ''}</a><a class="tab ${active === 'nieuw' ? 'active' : ''}" href="#/support/nieuw">Nieuw ticket</a></nav>`;
+  }
+  function tkRow(t, beheer) {
+    const last = t.berichten.filter(m => m.rol !== 'systeem').pop() || {};
+    const href = beheer ? `#/beheer/support/${t.nr}` : `#/support/ticket/${t.nr}`;
+    const lastTxt = last.rol === 'support' ? 'laatste reactie: support' : `laatste reactie: ${beheer ? 'gebruiker' : 'jij'}`;
+    return `<li class="tk-row" data-action="go" data-href="${href}" tabindex="0" role="link" aria-label="Ticket ${t.nr}: ${esc(t.onderwerp)} – ${esc(tkStatusLabel(t.status, beheer))}">
+      <span class="tk-cat tk-cat-${slug(t.categorie)}" title="${esc(t.categorie)}">${icon(TK_CAT_IC[t.categorie] || 'msg')}</span>
+      <div class="grow tk-main"><div class="tk-title"><span class="tk-nr">#${t.nr}</span><span class="strong">${esc(t.onderwerp)}</span></div>
+        <div class="small muted tk-sub">${beheer ? `<span class="strong">${esc(t.van)}</span> · ` : ''}${esc(t.categorie)} · ${prio(t.prioriteit)} · ${lastTxt}</div></div>
+      <div class="tk-side">${tkPill(t.status, beheer)}<span class="tiny muted">${fdtShort(t.bijgewerkt)}</span></div></li>`;
+  }
+  function viewSupportList() {
+    const mine = tickets().filter(t => t.eigen).slice().sort((a, b) => b.bijgewerkt.localeCompare(a.bijgewerkt));
+    const w = tkWachtCount();
+    return `${supportHead()}${supportTabs('lijst')}
+      ${w ? `<div class="banner warn">${icon('msg')}<span class="grow">${w === 1 ? 'Eén ticket wacht' : w + ' tickets wachten'} op jouw reactie.</span></div>` : ''}
+      ${mine.length ? `<div class="card tk-card"><ul class="tk-list">${mine.map(t => tkRow(t, false)).join('')}</ul></div>` : `<div class="empty card">${icon('msg')}<p>Je hebt nog geen tickets.</p><a class="btn primary" href="#/support/nieuw">Nieuw ticket</a></div>`}
+      <p class="tiny muted mt-s">Demo: tickets worden alleen in deze browser bewaard.</p>`;
+  }
+  function tkAttHtml() {
+    const a = S.tkAtt;
+    return a ? `<span class="att-chip">${icon('paperclip')}<span class="att-name">${esc(a.naam)}</span><small>${esc(a.grootte)}</small><button type="button" class="att-x" data-action="tk-att-remove" aria-label="Screenshot verwijderen">${icon('x')}</button></span>`
+      : `<label class="btn sm tk-file-btn" for="tk-file">${icon('upload')} Screenshot toevoegen</label><input type="file" id="tk-file" accept="image/*" hidden><button type="button" class="chip" data-action="tk-att-demo">Voorbeeld-screenshot</button>`;
+  }
+  function viewSupportNew() {
+    return `${supportHead()}${supportTabs('nieuw')}
+      <div class="tk-new">
+        <form class="card form-col tk-form" data-form="ticket-new">
+          <label>Onderwerp*<input name="onderwerp" required maxlength="120" placeholder="Bijv. Reviewlink opent niet bij mijn klant" autocomplete="off"></label>
+          <div class="form-grid two tk-grid"><label>Categorie<select name="categorie">${TK_CATS.map(c => `<option>${c}</option>`).join('')}</select></label>
+            <label>Prioriteit<select name="prioriteit">${TK_PRIOS.map(p => `<option ${p === 'Normaal' ? 'selected' : ''}>${p}</option>`).join('')}</select></label></div>
+          <label>Beschrijving*<textarea name="beschrijving" required rows="6" placeholder="Wat gebeurde er, wat verwachtte je, en hoe kunnen we het nadoen?"></textarea></label>
+          <div><div class="lbl-txt">Screenshot (optioneel)</div><div class="att-row tk-att" id="tk-att">${tkAttHtml()}</div></div>
+          <div class="tk-meta">${icon('settings')}<span><span class="strong">Wordt automatisch meegestuurd:</span> ${esc(browserInfo())}</span></div>
+          <div class="row gap wrap tk-actions"><a class="btn ghost" href="#/support">Annuleren</a><button class="btn primary" type="submit">${icon('send')} Ticket versturen</button></div>
+        </form>
+        <aside class="card tk-help"><h2>Handig om te weten</h2>
+          <ul class="bullets small"><li>Bij een bug helpen een screenshot en de stappen om het na te doen.</li><li>Kies <strong>Hoog</strong> als je echt niet verder kunt, bijvoorbeeld als een klant niet kan reviewen of betalen.</li><li>Je krijgt bericht zodra we reageren; je antwoordt gewoon in het ticket.</li></ul>
+          <p class="small muted">Bereikbaar op werkdagen van 9:00 tot 17:00. Je tickets en bijlagen blijven in de EU.</p></aside>
+      </div>`;
+  }
+  function tkMsg(m, beheer) {
+    if (m.rol === 'systeem') {
+      if (m.intern && !beheer) return '';
+      const txt = m.veld === 'status' ? `Status gewijzigd naar ${tkStatusLabel(m.naar, beheer)}` : m.veld === 'prioriteit' ? `Prioriteit gewijzigd naar ${m.naar}` : m.veld === 'toegewezen' ? `Toegewezen aan ${m.naar}` : m.tekst;
+      return `<li class="tk-sys"><span>${esc(txt)}${m.door && (beheer || m.door !== 'beheer') ? ' · ' + esc(m.door) : ''}${m.intern ? ' · intern' : ''}</span><time>${fdt(m.tijd)}</time></li>`;
+    }
+    const sup = m.rol === 'support', ik = !beheer && m.naam === 'Sanne de Vries';
+    const av = sup ? '<span class="tk-av"><img src="img/beeldmerk.svg" alt=""></span>' : `<span class="avatar sm ${m.naam === 'Sanne de Vries' ? '' : 'klant'}">${esc(initials(m.naam))}</span>`;
+    const who = sup ? SUPPORT_NAAM + (beheer && m.agent ? ` (${m.agent})` : '') : ik ? 'Jij' : m.naam;
+    return `<li class="tk-msg ${sup ? 'sup' : 'usr'}">${av}<div class="tk-bubble"><div class="tk-who"><span class="strong">${esc(who)}</span><time class="tiny muted">${fdt(m.tijd)}</time></div><div class="tk-text">${esc(m.tekst)}</div>${m.bijlage ? `<div class="att-row"><button type="button" class="att-chip" data-action="download" data-name="${esc(m.bijlage.naam)}">${icon('paperclip')}<span class="att-name">${esc(m.bijlage.naam)}</span><small>${esc(m.bijlage.grootte)}</small></button></div>` : ''}</div></li>`;
+  }
+  function beheerBanner() { return `<div class="banner info">${icon('shield')}<span class="grow small"><strong>Beheerdersweergave (demo).</strong> Alleen bedoeld voor het Diafragmo-team van Noorderwind Studio; in het echte product zit dit achter een beheerdersaccount.</span></div>`; }
+  function viewTicket(t, beheer) {
+    if (!t) return viewNotFound();
+    const back = beheer ? `<a class="back" href="#/beheer/support">${icon('arrowLeft')} Support-inbox</a>` : `<a class="back" href="#/support">${icon('arrowLeft')} Mijn tickets</a>`;
+    const opts = (list, cur, lbl) => list.map(v => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(lbl ? lbl(v) : v)}</option>`).join('');
+    const reply = `<form class="tk-reply" data-form="${beheer ? 'ticket-reply-support' : 'ticket-reply'}" data-nr="${t.nr}">
+        <textarea name="tekst" rows="3" required aria-label="${beheer ? 'Antwoord als support' : 'Je reactie'}" placeholder="${beheer ? 'Antwoord als Diafragmo support…' : 'Typ je reactie…'}"></textarea>
+        <div class="tk-reply-foot">${beheer ? `<label class="tk-inline">Status na versturen<select name="status">${opts(TK_STATUSES, 'Wacht op jou', s => tkStatusLabel(s, true))}</select></label>` : `<span class="tiny muted">${t.status === 'Opgelost' ? 'Reageren heropent het ticket.' : 'Het supportteam krijgt direct een melding.'}</span>`}
+          <div class="row gap wrap">${!beheer && t.status !== 'Opgelost' ? `<button type="button" class="btn ghost" data-action="tk-resolve" data-nr="${t.nr}">${icon('check')} Markeer als opgelost</button>` : ''}<button class="btn primary" type="submit">${icon('send')} ${beheer ? 'Verstuur antwoord' : 'Verstuur reactie'}</button></div></div>
+      </form>`;
+    const side = beheer ? `<aside class="card tk-aside form-col"><h2>Beheer</h2>
+        <label>Status<select data-tk-set="status" data-nr="${t.nr}">${opts(TK_STATUSES, t.status, s => tkStatusLabel(s, true))}</select></label>
+        <label>Prioriteit<select data-tk-set="prioriteit" data-nr="${t.nr}">${opts(TK_PRIOS, t.prioriteit)}</select></label>
+        <label>Toegewezen aan<select data-tk-set="toegewezen" data-nr="${t.nr}">${opts(TK_AGENTS, t.toegewezen)}</select></label>
+        <div class="tk-user"><span class="avatar sm ${t.eigen ? '' : 'klant'}">${esc(initials(t.van))}</span><div class="grow"><div class="strong small">${esc(t.van)}</div><div class="tiny muted">${esc(t.bedrijf)} · ${esc(t.email)}</div></div></div>
+        <div class="tk-meta">${icon('settings')}<span>${esc(t.meta)}</span></div></aside>`
+      : `<aside class="card tk-aside"><h2>Details</h2>
+        <dl class="tk-dl"><dt>Status</dt><dd>${tkPill(t.status)}</dd><dt>Categorie</dt><dd>${esc(t.categorie)}</dd><dt>Prioriteit</dt><dd>${prio(t.prioriteit)}</dd><dt>Aangemaakt</dt><dd>${fdt(t.aangemaakt)}</dd><dt>Bijgewerkt</dt><dd>${fdt(t.bijgewerkt)}</dd></dl>
+        ${t.status === 'Wacht op jou' ? `<div class="banner warn small">${icon('msg')}<span>Support wacht op jouw reactie.</span></div>` : ''}
+        <div class="tk-meta">${icon('settings')}<span>${esc(t.meta)}</span></div></aside>`;
+    return `${back}
+      <div class="page-head tk-head"><div><div class="row gap wrap"><span class="tk-nr big">#${t.nr}</span>${tkPill(t.status, beheer)}${beheer ? '<span class="pill tk-beheer">Beheerder · demo</span>' : ''}</div><h1>${esc(t.onderwerp)}</h1>
+        <p class="muted small">${esc(t.categorie)} · prioriteit ${prio(t.prioriteit)} · aangemaakt ${fdt(t.aangemaakt)}${beheer ? ' · door ' + esc(t.van) : ''}</p></div></div>
+      ${beheer ? beheerBanner() : ''}
+      <div class="tk-detail"><section class="card"><h2 class="tk-h">Gesprek</h2><ol class="tk-thread">${t.berichten.map(m => tkMsg(m, beheer)).join('')}</ol>${reply}</section>${side}</div>`;
+  }
+  // Support – beheerderskant
+  function viewBeheer() {
+    const all = tickets(), f = S.tkFilter;
+    const count = s => all.filter(t => t.status === s).length;
+    const list = all.filter(t => (f.status === 'Alle' || t.status === f.status) && (f.cat === 'Alle' || t.categorie === f.cat))
+      .slice().sort((a, b) => (a.status === 'Opgelost') - (b.status === 'Opgelost') || b.bijgewerkt.localeCompare(a.bijgewerkt));
+    return `<div class="page-head"><div><div class="row gap wrap"><h1>Support-inbox</h1><span class="pill tk-beheer">Beheerder · demo</span></div><p class="muted">Alle tickets van Diafragmo-gebruikers · <strong>${count('Open')}</strong> open</p></div>
+        <div class="head-actions"><button class="btn ghost" data-action="tk-reset">Demo-tickets herstellen</button></div></div>
+      ${beheerBanner()}
+      <div class="toolbar"><div class="chips">${['Alle'].concat(TK_STATUSES).map(s => `<button class="chip ${f.status === s ? 'active' : ''}" data-action="tk-filter" data-v="${esc(s)}" aria-pressed="${f.status === s}">${esc(s === 'Alle' ? 'Alle' : tkStatusLabel(s, true))} <span>${s === 'Alle' ? all.length : count(s)}</span></button>`).join('')}</div>
+        <div class="toolbar-right"><label class="tk-inline">Categorie<select class="select" data-tk-filter="cat">${['Alle'].concat(TK_CATS).map(c => `<option ${f.cat === c ? 'selected' : ''}>${c}</option>`).join('')}</select></label></div></div>
+      ${list.length ? `<div class="card tk-card"><ul class="tk-list">${list.map(t => tkRow(t, true)).join('')}</ul></div>` : `<div class="empty card">${icon('inbox')}<p>Geen tickets met dit filter.</p></div>`}`;
+  }
+  function tkSystem(t, veld, naar, extra) { const now = nowLocal(); t.berichten.push(Object.assign({ rol: 'systeem', veld, naar, tijd: now }, extra || {})); t.bijgewerkt = now; }
+
   // ---------- Acties ----------
   function newProject(data) {
     const id = 'n' + (Date.now() % 1000000);
@@ -1316,6 +1579,15 @@
     'toggle-nav': () => document.body.classList.toggle('nav-open'),
     'toggle-theme': () => setTheme(themeEffective() === 'dark' ? 'light' : 'dark'),
     'set-theme': el => setTheme(el.dataset.v),
+    // Info-menu & support
+    'info-toggle': () => { if (infoOpen()) closeInfo(true); else openInfo(); },
+    'info-about': () => aboutModal(),
+    'info-news': (el, e) => { if (e) e.preventDefault(); newsModal(); },
+    'tk-att-demo': () => { const d = new Date(); S.tkAtt = { naam: `screenshot-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}.png`, grootte: '412 KB' }; const b = $('#tk-att'); if (b) b.innerHTML = tkAttHtml(); },
+    'tk-att-remove': () => { S.tkAtt = null; const b = $('#tk-att'); if (b) b.innerHTML = tkAttHtml(); },
+    'tk-resolve': el => { const t = ticket(el.dataset.nr); if (!t) return; t.status = 'Opgelost'; tkSystem(t, 'status', 'Opgelost', { door: 'Sanne de Vries' }); saveTickets(); toast(`Ticket #${t.nr} gemarkeerd als opgelost`); renderKeep(); },
+    'tk-filter': el => { S.tkFilter.status = el.dataset.v; renderKeep(); },
+    'tk-reset': () => { TK = seedTickets(); saveTickets(); S.tkFilter = { status: 'Alle', cat: 'Alle' }; toast('Demo-tickets hersteld'); renderKeep(); },
     'new-project': () => formModal('Nieuw project', `
         <label>Projectnaam*<input name="titel" required placeholder="Bijv. Bedrijfsfilm 2027"></label>
         <label>Klant*<input name="klant" required placeholder="Bijv. Bakkerij Van Dam"></label>
@@ -1489,6 +1761,27 @@
       const ul = $('#portal-comments'); if (ul) ul.innerHTML = S.portal.comments.map(c => `<li><span class="tc">${tc(c.t)}</span><div>${esc(c.tekst)}</div></li>`).join('');
       toast('Feedback verstuurd naar Sanne (demo)');
     },
+    'ticket-new': (f, d) => {
+      const list = tickets(), now = nowLocal();
+      const nr = Math.max(1000, ...list.map(t => t.nr)) + 1;
+      const t = { nr, onderwerp: d.onderwerp.trim(), categorie: d.categorie, prioriteit: d.prioriteit, status: 'Open', eigen: true, van: 'Sanne de Vries', bedrijf: D.studio.naam, email: D.studio.email, toegewezen: TK_AGENTS[0], aangemaakt: now, bijgewerkt: now, meta: browserInfo(),
+        berichten: [{ rol: 'gebruiker', naam: 'Sanne de Vries', tijd: now, tekst: d.beschrijving.trim(), bijlage: S.tkAtt }, { rol: 'systeem', tijd: now, tekst: 'Automatisch bericht: we hebben je ticket ontvangen. Je hoort meestal binnen één werkdag van ons.' }] };
+      list.unshift(t); S.tkAtt = null; saveTickets();
+      toast('Ticket verstuurd naar het Diafragmo-team'); go('#/support/ticket/' + nr);
+    },
+    'ticket-reply': (f, d) => {
+      const t = ticket(f.dataset.nr); if (!t || !d.tekst.trim()) return;
+      t.berichten.push({ rol: 'gebruiker', naam: 'Sanne de Vries', tijd: nowLocal(), tekst: d.tekst.trim() }); t.bijgewerkt = nowLocal();
+      if (t.status === 'Wacht op jou' || t.status === 'Opgelost') { t.status = 'Open'; tkSystem(t, 'status', 'Open'); }
+      saveTickets(); toast('Reactie verstuurd naar het Diafragmo-team'); renderKeep();
+    },
+    'ticket-reply-support': (f, d) => {
+      const t = ticket(f.dataset.nr); if (!t || !d.tekst.trim()) return;
+      const agent = t.toegewezen.indexOf(' · ') > 0 ? t.toegewezen.split(' · ')[0] : 'Noor';
+      t.berichten.push({ rol: 'support', naam: SUPPORT_NAAM, agent, tijd: nowLocal(), tekst: d.tekst.trim() }); t.bijgewerkt = nowLocal();
+      if (d.status && d.status !== t.status) { t.status = d.status; tkSystem(t, 'status', d.status); }
+      saveTickets(); toast(`Antwoord verstuurd aan ${esc(t.van)} als Diafragmo support`); renderKeep();
+    },
     'public-request': (f, d) => {
       const klant = d.bedrijf || d.naam;
       const p = newProject({ titel: d.type + ' – aanvraag via website', klant, contact: d.naam, type: d.type, deadline: d.datum || '2026-12-15', email: d.email, aanvraag: d.bericht });
@@ -1515,6 +1808,13 @@
     if (el.matches('input[data-action]')) { const fn = A[el.dataset.action]; if (fn) fn(el, e); return; }
     if (el.matches('[data-action-change="review-project"]')) { go('#/review/' + el.value); return; }
     if (el.matches('[data-q]')) { S.quote[el.dataset.q] = el.type === 'checkbox' ? el.checked : el.value; renderQuoteLive(); return; }
+    if (el.id === 'tk-file') { const fl = el.files && el.files[0]; if (fl) { S.tkAtt = { naam: fl.name, grootte: mb(fl) }; const b = $('#tk-att'); if (b) b.innerHTML = tkAttHtml(); } return; }
+    if (el.matches('[data-tk-set]')) {
+      const t = ticket(el.dataset.nr), k = el.dataset.tkSet; if (!t || t[k] === el.value) return;
+      t[k] = el.value; tkSystem(t, k, el.value, { door: 'beheer', intern: k === 'toegewezen' }); saveTickets();
+      toast(k === 'status' ? `Status van #${t.nr}: ${esc(tkStatusLabel(el.value, true))}` : k === 'prioriteit' ? `Prioriteit van #${t.nr}: ${esc(el.value)}` : `#${t.nr} toegewezen aan ${esc(el.value)}`); renderKeep(); return;
+    }
+    if (el.matches('[data-tk-filter]')) { S.tkFilter[el.dataset.tkFilter] = el.value; renderKeep(); return; }
     if (el.matches('[data-sr="formulier"]')) { S.showreel.formulier = el.checked; refreshReelPreview(); return; }
     if (el.id === 'cmp-tpl' && currentDraft) {
       const d = readCompose(); const nd = draftFor(proj(d.pid), el.value, { doc: d.origKind === el.value ? d.doc : null });
@@ -1543,6 +1843,7 @@
   function boot() {
     $$('[data-ic]').forEach(el => { el.insertAdjacentHTML('afterbegin', icon(el.dataset.ic)); });
     applyTheme(false);
+    tickets(); updateInfoBadges();
     if (!location.hash) history.replaceState(null, '', '#/dashboard');
     render();
   }
