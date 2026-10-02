@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<title>Diafragmo – concept 1 – favicon (licht/donker)</title>
+<style>@media (prefers-color-scheme: dark) { .tegel { fill: #2A2E37; } }</style>
+<path d="M230.4 0H793.6A230.4 230.4 0 0 1 1024 230.4V793.6A230.4 230.4 0 0 1 793.6 1024H230.4A230.4 230.4 0 0 1 0 793.6V230.4A230.4 230.4 0 0 1 230.4 0Z" class="tegel" fill="#15171C"/>
+<g transform="translate(512 512) scale(3.07)"><path d="M37.89 92.54L37.89 -14.37L97.92 20.29A100 100 0 0 1 37.89 92.54Z" fill="#FF6A3D"/><path d="M31.39 25.63L31.39 94.95A100 100 0 0 1 -61.2 79.09L31.39 25.63Z" fill="#FF6A3D"/><path d="M-6.5 40L-66.53 74.66A100 100 0 0 1 -99.09 -13.46L-6.5 40Z" fill="#FF6A3D"/><path d="M-37.89 -92.54L-37.89 14.37L-97.92 -20.29A100 100 0 0 1 -37.89 -92.54Z" fill="#FF6A3D"/><path d="M61.2 -79.09L-31.39 -25.63L-31.39 -94.95A100 100 0 0 1 61.2 -79.09Z" fill="#FF6A3D"/><path d="M99.09 13.46L6.5 -40L66.53 -74.66A100 100 0 0 1 99.09 13.46Z" fill="#FF6A3D"/></g>
+</svg>

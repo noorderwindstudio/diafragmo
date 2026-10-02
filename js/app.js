@@ -105,9 +105,42 @@
     link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
     globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
     camera: '<path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>',
-    arrowLeft: '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>'
+    arrowLeft: '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+    moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+    monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>'
   };
   function icon(n, cls) { return `<svg class="ic ${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`; }
+
+  // ---------- Thema (licht / donker / systeem) ----------
+  // Het inline script in <head> zet data-theme al vóór de eerste weergave; dit houdt knop, Instellingen en systeemwissel in sync.
+  const THEME_KEY = 'diafragmo-thema';
+  const themeMq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function themePref() { try { const v = localStorage.getItem(THEME_KEY); return v === 'light' || v === 'dark' ? v : 'system'; } catch (e) { return 'system'; } }
+  function themeEffective(pref) { pref = pref || themePref(); return pref === 'system' ? (themeMq && themeMq.matches ? 'dark' : 'light') : pref; }
+  function themeNote(pref, t) { return pref === 'system' ? `Volgt de instelling van je apparaat (nu ${t === 'dark' ? 'donker' : 'licht'}).` : 'Je keuze wordt op dit apparaat onthouden.'; }
+  let themeAnimTimer = null;
+  function applyTheme(animate) {
+    const pref = themePref(), t = themeEffective(pref), root = document.documentElement;
+    if (animate) { root.classList.add('theme-anim'); clearTimeout(themeAnimTimer); themeAnimTimer = setTimeout(() => root.classList.remove('theme-anim'), 400); }
+    root.setAttribute('data-theme', t);
+    const b = $('#theme-toggle');
+    if (b) { const l = t === 'dark' ? 'Licht thema' : 'Donker thema'; b.setAttribute('aria-label', l); b.setAttribute('title', l); }
+    $$('[data-action="set-theme"]').forEach(x => { const on = x.dataset.v === pref; x.classList.toggle('active', on); x.setAttribute('aria-pressed', String(on)); });
+    const n = $('#theme-note'); if (n) n.textContent = themeNote(pref, t);
+  }
+  function setTheme(pref) {
+    try { if (pref === 'system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, pref); } catch (e) { /* privémodus: alleen voor deze sessie */ }
+    applyTheme(true);
+  }
+  if (themeMq) { const onSys = () => { if (themePref() === 'system') applyTheme(true); }; if (themeMq.addEventListener) themeMq.addEventListener('change', onSys); else if (themeMq.addListener) themeMq.addListener(onSys); }
+  function themeSettingsHtml() {
+    const pref = themePref();
+    const opts = [['light', 'Licht', 'sun'], ['dark', 'Donker', 'moon'], ['system', 'Systeem', 'monitor']];
+    return `<div class="card-head mt"><h2>Weergave</h2></div>
+          <div class="seg theme-seg" role="group" aria-label="Weergave">${opts.map(o => `<button type="button" class="${pref === o[0] ? 'active' : ''}" data-action="set-theme" data-v="${o[0]}" aria-pressed="${pref === o[0]}">${icon(o[2])}${o[1]}</button>`).join('')}</div>
+          <p class="tiny muted theme-note" id="theme-note">${themeNote(pref, themeEffective(pref))}</p>`;
+  }
 
   // EU-sterrencirkel (12 sterren) als inline SVG
   function euBadge(cls) {
@@ -690,7 +723,7 @@
         </section>
       </div>
       <div class="eu-trust"><span class="eu-trust-badge">${euBadge('eu-flag')}${icon('lock')} Veilig gedeeld · gehost in de EU</span><span class="eu-trust-sub">Je video's, bestanden en gegevens blijven in Europa en worden beschermd volgens de AVG.</span></div>
-      <footer class="portal-foot">Klantportaal van ${esc(D.studio.naam)} · aangedreven door <strong>Diafragmo</strong> · Prototype – voorbeelddata</footer>
+      <footer class="portal-foot">Klantportaal van ${esc(D.studio.naam)} · aangedreven door <span class="pf-brand"><img class="pf-mark" src="img/beeldmerk.svg" alt=""><strong>Diafragmo</strong></span> · Prototype – voorbeelddata</footer>
     </div>`;
   }
   function fakeUpload(name, size) {
@@ -889,7 +922,7 @@
       </section>
       ${mini ? '' : `<section class="site-about" id="site-over"><h2>Over mij</h2><p>Al ruim acht jaar maak ik video's voor mkb, gemeenten en evenementen. Van eerste idee tot de laatste export: één aanspreekpunt, heldere planning en een vaste prijs vooraf.</p></section>`}
       ${sr.formulier ? (mini ? `<section class="site-form-mini"><div class="strong small">Project aanvragen</div><div class="fake-input"></div><div class="fake-input"></div><div class="fake-btn"></div></section>` : publicForm()) : ''}
-      <footer class="site-foot">© 2026 ${esc(sr.titel)} · ${esc(sr.domein)} · gemaakt met Diafragmo</footer>`;
+      <footer class="site-foot">© 2026 ${esc(sr.titel)} · ${esc(sr.domein)} · gemaakt met <span class="pf-brand"><img class="pf-mark" src="img/beeldmerk.svg" alt="">Diafragmo</span></footer>`;
   }
   function publicForm() {
     const sent = S.showreelSent;
@@ -1227,6 +1260,7 @@
           <div class="card-head mt"><h2>Klantportaal</h2></div>
           <p class="small muted">Je klanten zien jouw logo en accentkleur (instelbaar bij Showreel).</p>
           <a class="btn" href="#/klant/p1">${icon('eye')} Bekijk als klant</a>
+          ${themeSettingsHtml()}
         </section>
         <section class="card">
           <div class="card-head"><h2>Abonnement</h2><span class="small muted">per maand, excl. btw</span></div>
@@ -1280,6 +1314,8 @@
     'modal-close': closeModal,
     'modal-act': el => { const h = modalHandlers[Number(el.dataset.i)]; if (h && h.onClick) h.onClick(); },
     'toggle-nav': () => document.body.classList.toggle('nav-open'),
+    'toggle-theme': () => setTheme(themeEffective() === 'dark' ? 'light' : 'dark'),
+    'set-theme': el => setTheme(el.dataset.v),
     'new-project': () => formModal('Nieuw project', `
         <label>Projectnaam*<input name="titel" required placeholder="Bijv. Bedrijfsfilm 2027"></label>
         <label>Klant*<input name="klant" required placeholder="Bijv. Bakkerij Van Dam"></label>
@@ -1506,6 +1542,7 @@
   window.addEventListener('hashchange', render);
   function boot() {
     $$('[data-ic]').forEach(el => { el.insertAdjacentHTML('afterbegin', icon(el.dataset.ic)); });
+    applyTheme(false);
     if (!location.hash) history.replaceState(null, '', '#/dashboard');
     render();
   }

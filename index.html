@@ -6,8 +6,13 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Diafragmo – prototype voor zzp-videomakers</title>
   <meta name="description" content="Klikbaar prototype van Diafragmo, projectbeheer voor zelfstandige videomakers. Alle data is fictief.">
-  <link rel="icon" type="image/svg+xml" href="img/app-icoon.svg">
-  <link rel="stylesheet" href="css/style.css?v=20261002c">
+  <meta name="color-scheme" content="light dark">
+  <script>/* Thema vóór de eerste weergave toepassen (geen flits): opgeslagen keuze, anders systeeminstelling */
+    (function () { var t = null; try { t = localStorage.getItem('diafragmo-thema'); } catch (e) {}
+      if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', t); })();</script>
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <link rel="stylesheet" href="css/style.css?v=20261003a">
 </head>
 <body>
   <div class="proto-banner" role="note"><strong>Prototype – voorbeelddata</strong><span class="hide-sm"> · alle namen, bedragen en bestanden zijn fictief · Made with ❤️ by Noorderwind Studio</span></div>
@@ -35,6 +40,7 @@
         <button class="icon-btn nav-toggle" data-action="toggle-nav" data-ic="menu" aria-label="Menu openen"></button>
         <label class="search" data-ic="search"><input id="global-search" type="search" placeholder="Zoek projecten of klanten… (Enter)" aria-label="Zoeken"></label>
         <div class="top-actions">
+          <button id="theme-toggle" class="icon-btn theme-toggle" type="button" data-action="toggle-theme" aria-label="Donker thema" title="Donker thema"><svg class="ic ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><svg class="ic ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></button>
           <a id="topbar-client" class="btn ghost" data-ic="eye" href="#/klant/p1"><span class="hide-sm">Bekijk als klant</span></a>
           <button class="btn primary" data-action="new-project" data-ic="plus"><span class="hide-sm">Nieuw project</span></button>
         </div>
@@ -50,6 +56,6 @@
   <div id="toast-root" aria-live="polite"></div>
 
   <script src="js/data.js"></script>
-  <script src="js/app.js?v=20261002c"></script>
+  <script src="js/app.js?v=20261003a"></script>
 </body>
 </html>
