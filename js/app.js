@@ -40,6 +40,16 @@
       templates: null, threads: JSON.parse(JSON.stringify(D.emails))
     },
     timer: null,
+    timerUren: [],
+    agenda: { outlook: { adres: 'sanne@sannedevriesvideo.nl', connected: false, sinds: null }, google: { adres: 'sannedevriesvideo@gmail.com', connected: false, sinds: null }, autoZet: true, checkBeschikbaar: true },
+    quotes: JSON.parse(JSON.stringify(D.quotes || {})),
+    callsheets: JSON.parse(JSON.stringify(D.callsheets || {})),
+    csSel: {},
+    subs: {},
+    subsShow: true,
+    subsJob: null,
+    signOpen: false,
+    sigInk: false,
     tkAtt: null,
     tkFilter: { status: 'Alle', cat: 'Alle' }
   };
@@ -115,7 +125,10 @@
     sparkle: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7z"/>',
     inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
     paperclip: '<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
-    bug: '<rect x="8" y="6" width="8" height="14" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 19l-3-2M5 19l3-2M20 13h-4M4 13h4M10 3.5l1 2.5M14 3.5l-1 2.5"/>'
+    bug: '<rect x="8" y="6" width="8" height="14" rx="4"/><path d="M19 7l-3 2M5 7l3 2M19 19l-3-2M5 19l3-2M20 13h-4M4 13h4M10 3.5l1 2.5M14 3.5l-1 2.5"/>',
+    phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
+    pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    cloud: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>'
   };
   function icon(n, cls) { return `<svg class="ic ${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`; }
 
@@ -290,9 +303,15 @@
         nav = 'showreel'; break;
       case 'klant': {
         const p = proj(r.a || 'p1') || proj('p1'); ensure(p); external = true;
-        html = r.b === 'betaald' ? viewPaid(p) : viewPortal(p); mount = () => mountPortal(p); break;
+        html = r.b === 'betaald' ? viewPaid(p) : r.b === 'offerte' ? viewPortalQuote(p) : viewPortal(p);
+        mount = () => { mountPortal(p); if (r.b === 'offerte') initSigPad(); }; break;
       }
-      case 'instellingen': html = viewSettings(); if (r.a === 'email' || r.a === 'hosting') mount = () => { const el = $(r.a === 'email' ? '#email-settings' : '#hosting-privacy'); if (el) el.scrollIntoView(); }; break;
+      case 'instellingen': {
+        html = viewSettings();
+        const anchor = { email: '#email-settings', hosting: '#hosting-privacy', agenda: '#agenda-settings', abonnement: '#abonnement' }[r.a];
+        if (anchor) mount = () => { const el = $(anchor); if (el) el.scrollIntoView(); };
+        break;
+      }
       case 'support':
         nav = '';
         if (r.a === 'nieuw') html = viewSupportNew();
@@ -308,6 +327,8 @@
     $$('.nav-item').forEach(a => a.classList.toggle('active', a.dataset.nav === nav));
     const clientBtn = $('#topbar-client');
     if (clientBtn) clientBtn.setAttribute('href', '#/klant/' + ((r.name === 'project' || r.name === 'review') && proj(r.a) ? r.a : 'p1'));
+    const me = $('.side-foot .me .tiny'); if (me) me.textContent = `${D.studio.naam} · ${S.settings.plan}`;
+    renderTimerPill();
     window.scrollTo(0, 0);
     if (mount) mount();
   }
@@ -341,6 +362,7 @@
       <div class="pipeline card">
         ${STATUSES.map(s => { const c = S.projects.filter(p => p.status === s).length; return `<button class="pipe st-bg-${slug(s)}" data-action="filter-status" data-status="${esc(s)}"><span>${esc(s)}</span><strong>${c}</strong></button>`; }).join('')}
       </div>
+      ${weekCardHtml()}
       <div class="grid-dash">
         <section class="card span-2">
           <div class="card-head"><h2>Lopende projecten</h2><a class="link" href="#/projecten">Alle projecten →</a></div>
@@ -375,7 +397,7 @@
         <section class="card">
           <div class="card-head"><h2>Komende draaidagen</h2></div>
           <ul class="list">${upcoming.slice(0, 4).map(u => `
-            <li class="row-item click" data-action="go" data-href="#/project/${u.p.id}/planning">
+            <li class="row-item click" data-action="go" data-href="#/project/${u.p.id}/callsheet">
               ${dateChip(u.d.datum)}
               <div class="grow"><div class="strong">${esc(u.p.titel)}</div><div class="small muted">${esc(u.d.tijd)} · ${esc(u.d.locatie)}</div></div>
             </li>`).join('') || '<li class="muted small">Geen draaidagen gepland.</li>'}</ul>
@@ -420,10 +442,10 @@
   }
 
   // ---------- Projectpagina ----------
-  const TABS = [['planning', 'Planning'], ['shotlist', 'Shotlist & draaiboek'], ['bestanden', 'Bestanden'], ['feedback', 'Feedback'], ['email', 'E-mail'], ['uren', 'Uren & km'], ['financien', 'Financiën']];
+  const TABS = [['planning', 'Planning'], ['callsheet', 'Callsheet'], ['shotlist', 'Shotlist & draaiboek'], ['bestanden', 'Bestanden'], ['feedback', 'Feedback'], ['email', 'E-mail'], ['uren', 'Uren & km'], ['financien', 'Financiën']];
   function viewProject(p, tab) {
     if (!TABS.find(t => t[0] === tab)) tab = 'planning';
-    const body = { planning: tabPlanning, shotlist: tabShotlist, bestanden: tabFiles, feedback: tabFeedback, email: tabEmail, uren: tabHours, financien: tabFinance }[tab](p);
+    const body = { planning: tabPlanning, callsheet: tabCallsheet, shotlist: tabShotlist, bestanden: tabFiles, feedback: tabFeedback, email: tabEmail, uren: tabHours, financien: tabFinance }[tab](p);
     const unread = (S.email.threads[p.id] || []).filter(m => m.nieuw).length;
     const si = STATUSES.indexOf(p.status);
     return `
@@ -440,6 +462,7 @@
           <a class="btn primary" href="#/review/${p.id}">${icon('play')} Open review</a>
           <a class="btn" href="#/klant/${p.id}">${icon('eye')} Bekijk als klant</a>
           <button class="btn ghost" data-action="quote-for" data-id="${p.id}">${icon('file')} Offerte maken</button>
+          ${timerBtnHtml(p)}
         </div>
       </div>
       <nav class="tabs">${TABS.map(t => `<a class="tab ${t[0] === tab ? 'active' : ''}" href="#/project/${p.id}/${t[0]}">${t[1]}${t[0] === 'email' && unread ? ` <span class="tab-badge" title="${unread} nieuw">${unread}</span>` : ''}</a>`).join('')}</nav>
@@ -453,8 +476,8 @@
         ${pl.draaidagen.length ? `<ul class="list">${pl.draaidagen.map(d => `
           <li class="row-item">
             ${dateChip(d.datum)}
-            <div class="grow"><div class="strong">${esc(d.titel)}</div><div class="small muted">${icon('clock')} ${esc(d.tijd)} · ${icon('pin')} ${esc(d.locatie)}</div><div class="small muted">${icon('users')} ${esc(d.crew)}</div></div>
-            <button class="btn sm ghost" data-action="callsheet">Callsheet</button>
+            <div class="grow"><div class="strong">${esc(d.titel)}</div><div class="small muted">${icon('clock')} ${esc(d.tijd)} · ${icon('pin')} ${esc(d.locatie)}</div><div class="small muted">${icon('users')} ${esc(d.crew)}</div>${calProvider() && S.agenda.autoZet ? `<span class="cal-tag">${icon('calendar')} In je ${esc(CAL[calProvider()].label)}</span>` : ''}</div>
+            <button class="btn sm ghost" data-action="open-callsheet" data-id="${p.id}" data-datum="${esc(d.datum)}">Callsheet</button>
           </li>`).join('')}</ul>` : `<div class="empty small">${icon('calendar')}<p>Nog geen draaidagen gepland.</p></div>`}
       </section>
       <section class="card">
@@ -481,7 +504,7 @@
         </form>
       </section>
       <section class="card">
-        <div class="card-head"><h2>Draaiboek – draaidag 1</h2><button class="btn sm ghost" data-action="print-draaiboek">Delen met crew</button></div>
+        <div class="card-head"><h2>Draaiboek – draaidag 1</h2><a class="btn sm ghost" href="#/project/${p.id}/callsheet">${icon('calendar')} Open callsheet</a></div>
         <ol class="timeline">${D.draaiboek.map(d => `<li><span class="t">${d.tijd}</span><span>${esc(d.item)}</span></li>`).join('')}</ol>
       </section>
     </div>`;
@@ -517,17 +540,16 @@
   }
   function tabHours(p) {
     const h = S.hours[p.id]; const tu = projectHours(p.id), tk = projectKm(p.id);
-    const running = S.timer && S.timer.id === p.id;
-    return `<div class="kpis three">
+    return `${isPro() ? '' : lockedHtml('timer')}<div class="kpis three">
         <div class="kpi"><span class="kpi-label">Uren dit project</span><strong>${num(tu, 2)} u</strong><span class="small muted">telt mee voor urencriterium</span></div>
         <div class="kpi"><span class="kpi-label">Kilometers</span><strong>${num(tk, 0)} km</strong><span class="small muted">${eur(tk * 0.23)} à €0,23/km (voorbeeld)</span></div>
         <div class="kpi"><span class="kpi-label">Effectief uurtarief</span><strong>${tu ? eur((p.budget - financeCosts(p.id)) / tu) : '–'}</strong><span class="small muted">(budget − kosten) / uren</span></div>
       </div>
       <section class="card">
-        <div class="card-head"><h2>Uren & kilometers</h2><button class="btn sm ${running ? 'danger-btn' : 'primary'}" data-action="timer" data-id="${p.id}">${icon('clock')} ${running ? 'Stop timer <span id="timer-val">' + tc((Date.now() - S.timer.start) / 1000).slice(0, 8) + '</span>' : 'Start timer'}</button></div>
+        <div class="card-head"><h2>Uren & kilometers</h2>${timerBtnHtml(p, true)}</div>
         <div class="table-wrap"><table class="table">
           <thead><tr><th>Datum</th><th>Activiteit</th><th class="num">Uren</th><th class="num">Km</th></tr></thead>
-          <tbody>${h.map(x => `<tr><td>${fdateShort(x.datum)}</td><td>${esc(x.activiteit)}</td><td class="num">${num(x.uren, 2)}</td><td class="num">${num(x.km, 0)}</td></tr>`).join('')}</tbody>
+          <tbody>${h.map(x => `<tr><td>${fdateShort(x.datum)}</td><td>${esc(x.activiteit)}${x.tid ? ` <button class="tag timer-tag" data-action="hours-edit" data-id="${p.id}" data-tid="${esc(x.tid)}" title="Gemeten met de timer – klik om te bewerken">${icon('clock')} timer · bewerk</button>` : ''}</td><td class="num">${num(x.uren, 2)}</td><td class="num">${num(x.km, 0)}</td></tr>`).join('')}</tbody>
           <tfoot><tr><td colspan="2">Totaal</td><td class="num">${num(tu, 2)}</td><td class="num">${num(tk, 0)}</td></tr></tfoot>
         </table></div>
         <form class="inline-form" data-form="add-hours" data-id="${p.id}">
@@ -542,9 +564,10 @@
   function tabFinance(p) {
     const f = S.finance[p.id]; const kosten = financeCosts(p.id); const tu = projectHours(p.id);
     const act = d => d.status === 'Open' || d.status === 'Verlopen' ? `<button class="btn sm ghost" data-action="compose" data-id="${p.id}" data-kind="herinnering" data-nr="${esc(d.nr)}">${icon('send')} Herinner</button>` : d.status === 'Verstuurd' ? `<button class="btn sm ghost" data-action="compose" data-id="${p.id}" data-kind="offerte">${icon('send')} Opnieuw sturen</button>` : d.status === 'Betaald' || d.status === 'Geaccepteerd' ? '' : `<button class="btn sm ghost" data-action="quote-for" data-id="${p.id}">Maken</button>`;
-    const doc = (label, d) => `<div class="fin-doc card"><div class="small muted">${label}</div><div class="strong big">${eur(d.bedrag)}</div><div class="small muted">${esc(d.nr)} · ${esc(d.datum)}</div><div class="row-between">${statusPillInv(d.status)}${act(d)}</div></div>`;
-    return `<div class="fin-docs">
-        ${doc('Offerte (excl. btw)', f.offerte)}
+    const q = S.quotes[p.id];
+    const doc = (label, d, extra) => `<div class="fin-doc card"><div class="small muted">${label}</div><div class="strong big">${eur(d.bedrag)}</div><div class="small muted">${esc(d.nr)} · ${esc(d.datum)}</div>${extra || ''}<div class="row-between">${statusPillInv(d.status)}${act(d)}</div></div>`;
+    return `${quoteSignCard(p)}<div class="fin-docs">
+        ${doc('Offerte (excl. btw)', f.offerte, q ? `<div class="tiny ${q.signed ? 'ok' : 'muted'}">${icon(q.signed ? 'check' : 'pen')} ${q.signed ? 'Digitaal ondertekend' : 'Wacht op handtekening'}</div>` : '')}
         ${doc('Aanbetaling (incl. btw)', f.aanbetaling)}
         ${doc('Eindfactuur (incl. btw)', f.eindfactuur)}
       </div>
@@ -573,10 +596,6 @@
   }
   function mountProject(p, tab) {
     if (tab === 'email') (S.email.threads[p.id] || []).forEach(m => { m.nieuw = false; });
-    if (tab === 'uren' && S.timer) {
-      const iv = setInterval(() => { const el = $('#timer-val'); if (el && S.timer) el.textContent = tc((Date.now() - S.timer.start) / 1000).slice(0, 8); }, 500);
-      cleanupFns.push(() => clearInterval(iv));
-    }
   }
 
   // ---------- Review ----------
@@ -604,6 +623,7 @@
           <div class="vswitch" role="tablist">${['v1', 'v2', 'v3'].map(x => `<a role="tab" class="${x === v ? 'active' : ''}" href="#/review/${p.id}/${x}">${x}${x === p.versie ? ' <small>nieuwste</small>' : ''}</a>`).join('')}<span class="tiny muted vs-note">Voorbeeldbeelden: open-source testclips</span></div>
           <div class="player" id="player">
             ${videoTag(v)}
+            <div class="sub-overlay" id="sub-overlay" hidden></div>
             <div class="player-fallback" id="fallback" hidden>
               <div class="fb-inner" style="background:linear-gradient(135deg,${p.grad[0]},${p.grad[1]})"><button class="fb-play" data-action="fb-toggle" aria-label="Afspelen">${icon('play')}</button><div class="small">Voorbeeldvideo kon niet laden (offline?) – gesimuleerde speler</div></div>
             </div>
@@ -618,6 +638,7 @@
             <input name="tekst" placeholder="Opmerking op huidig tijdstip…" required autocomplete="off" aria-label="Nieuwe opmerking">
             <button class="btn primary sm" type="submit">${icon('msg')} Plaatsen</button>
           </form>
+          ${subsPanelHtml(p, v)}
         </div>
         <aside class="review-side card">
           <div class="card-head"><h2>Opmerkingen ${v}</h2><div class="seg sm">${['Alle', 'Open', 'Opgelost'].map(f => `<button class="${S.commentFilter === f ? 'active' : ''}" data-action="comment-filter" data-f="${f}">${f}</button>`).join('')}</div></div>
@@ -638,14 +659,15 @@
     if (last) last.addEventListener('error', fail);
     cleanupFns.push(() => { clearInterval(Player.iv); Player.iv = null; try { vid.pause(); } catch (e) { /* noop */ } });
   }
-  function mountReview() {
+  function mountReview(p, v) {
     const vid = $('#vid'); if (!vid) return;
-    Player.mode = 'video'; Player.t = 0; Player.dur = 10;
+    Player.mode = 'video'; Player.t = 0; Player.dur = 10; Player.subKey = p ? p.id + ':' + v : null;
     const update = () => {
       const t = Player.mode === 'video' ? vid.currentTime : Player.t;
       const el = $('#tc-now'); if (el) el.textContent = tc(t);
       const f = $('#scrub-fill'); if (f) f.style.width = Math.min(100, t / Player.dur * 100) + '%';
       $$('.comment').forEach(c => c.classList.toggle('near', Math.abs(Number(c.dataset.t) - t) < 0.6));
+      subOverlay(t);
     };
     Player.update = update;
     vid.addEventListener('timeupdate', update);
@@ -685,6 +707,7 @@
     const approved = p.status === 'Opgeleverd' || !!S.approved[p.id + ':' + p.versie];
     const v = p.versie !== '-' ? p.versie : 'v1';
     const cur = approved ? 6 : idx;
+    const q = S.quotes[p.id], qMain = !!q && p.versie === '-', qPending = !!q && !q.signed;
     return `${portalBar(p, `Je bekijkt het klantportaal zoals <strong>${esc(p.contact)}</strong> (${esc(p.klant)}) het ziet`)}
     <div class="portal" style="--brand:${S.showreel.kleur}">
       <header class="portal-head">
@@ -693,11 +716,11 @@
       </header>
       <section class="portal-hero">
         <div><div class="small muted">Jouw project</div><h1>${esc(p.titel)}</h1><p class="muted">Verwachte oplevering: ${fdate(p.deadline)}</p></div>
-        ${approved ? `<div class="callout ok">${icon('check')}<div><div class="strong">Video goedgekeurd</div><div class="small">Je kunt de definitieve video downloaden.</div></div></div>` : idx >= 5 ? `<div class="callout">${icon('play')}<div><div class="strong">Volgende stap: bekijk versie ${v}</div><div class="small">Geef feedback of keur de video goed.</div></div></div>` : ''}
+        ${qPending ? `<div class="callout">${icon('pen')}<div class="grow"><div class="strong">Volgende stap: onderteken de offerte</div><div class="small">Bekijk offerte ${esc(q.nr)} en geef digitaal akkoord.</div></div><a class="btn sm brand-btn" href="#/klant/${p.id}/offerte">Bekijken</a></div>` : approved ? `<div class="callout ok">${icon('check')}<div><div class="strong">Video goedgekeurd</div><div class="small">Je kunt de definitieve video downloaden.</div></div></div>` : idx >= 5 ? `<div class="callout">${icon('play')}<div><div class="strong">Volgende stap: bekijk versie ${v}</div><div class="small">Geef feedback of keur de video goed.</div></div></div>` : ''}
       </section>
       <ol class="ctimeline">${CLIENT_STEPS.map((s, k) => `<li class="${k < cur ? 'done' : ''} ${k === cur ? 'current' : ''}"><span class="dot">${k < cur ? icon('check') : ''}</span><span>${s}</span></li>`).join('')}</ol>
       <div class="portal-grid">
-        <section class="pcard span-2">
+        ${qMain ? portalQuoteCard(p, q) : `<section class="pcard span-2">
           <h2>${icon('play')} Bekijk & geef feedback <span class="vtag">${v}</span></h2>
           <div class="player small-player">${videoTag(v)}
             <div class="player-fallback" id="fallback" hidden><div class="fb-inner" style="background:linear-gradient(135deg,${p.grad[0]},${p.grad[1]})"><div class="small">Voorbeeldvideo kon niet laden</div></div></div></div>
@@ -710,7 +733,7 @@
             <span class="small muted">${approved ? 'Goedgekeurd – bedankt!' : 'Helemaal tevreden? Keur de video goed, dan maakt Sanne de definitieve export.'}</span>
             <button class="btn brand-btn" data-action="portal-approve" data-id="${p.id}" ${approved ? 'disabled' : ''}>${icon('check')} ${approved ? 'Goedgekeurd' : 'Goedkeuren'}</button>
           </div>
-        </section>
+        </section>`}
         <section class="pcard">
           <h2>${icon('upload')} Materiaal aanleveren</h2>
           <label class="dropzone" id="dropzone"><input type="file" id="portal-file" multiple hidden>${icon('upload')}<span class="strong">Sleep bestanden hierheen</span><span class="small muted">of klik om te kiezen · logo's, foto's, muziek, teksten</span><span class="tiny muted">Prototype: bestanden worden niet echt geüpload.</span></label>
@@ -728,13 +751,13 @@
         </section>
         <section class="pcard">
           <h2>${icon('euro')} Factuur</h2>
-          <div class="invoice-mini">
+          ${q && !S.invoices.some(i => i.projectId === p.id && i.status !== 'Concept') ? `<div class="invoice-mini"><div class="small muted">Aanbetaling ${q.aanbetalingPct}%</div><div class="amount">${eur(quoteCalc(q).aanb)}</div><div class="small muted">${q.signed ? 'Bedankt voor je akkoord! De aanbetalingsfactuur volgt binnenkort per e-mail.' : 'Na ondertekening van de offerte ontvang je de aanbetalingsfactuur. Betalen kan dan met iDEAL.'}</div></div>` : `<div class="invoice-mini">
             <div class="row-between"><span class="small muted">${esc(inv.nr)} · ${esc(inv.omschrijving)}</span>${statusPillInv(paid ? 'Betaald' : 'Open')}</div>
             <div class="amount">${eur(inv.bedrag)}</div>
             <div class="small muted">incl. 21% btw · vervaldatum ${fdate(inv.vervalt)}</div>
           </div>
           ${paid ? `<div class="banner ok small">${icon('check')} Betaald – bedankt!</div>` : `<button class="btn ideal block" data-action="ideal" data-id="${p.id}"><span class="ideal-logo">iD</span> Betalen met iDEAL</button>`}
-          <button class="btn ghost block sm" data-action="download" data-name="${esc(inv.nr)}.pdf">${icon('file')} Factuur als PDF</button>
+          <button class="btn ghost block sm" data-action="download" data-name="${esc(inv.nr)}.pdf">${icon('file')} Factuur als PDF</button>`}
         </section>
       </div>
       <div class="eu-trust"><span class="eu-trust-badge">${euBadge('eu-flag')}${icon('lock')} Veilig gedeeld · gehost in de EU</span><span class="eu-trust-sub">Je video's, bestanden en gegevens blijven in Europa en worden beschermd volgens de AVG.</span></div>
@@ -809,7 +832,7 @@
     if (!S.quote) S.quote = defaultQuote('p6');
     const q = S.quote;
     const docs = [
-      { nr: 'O2026-021', soort: 'Offerte', klant: proj('p5').klant, bedrag: 2450, status: 'Verstuurd', pid: 'p5' },
+      { nr: 'O2026-021', soort: 'Offerte', klant: proj('p5').klant, bedrag: 2450, status: S.quotes.p5 ? S.quotes.p5.status : 'Verstuurd', pid: 'p5' },
       { nr: 'O2026-018', soort: 'Offerte', klant: proj('p1').klant, bedrag: 4850, status: 'Geaccepteerd', pid: 'p1' }
     ].concat(S.invoices.map(i => ({ nr: i.nr, soort: 'Factuur', klant: i.klant, bedrag: i.bedrag, status: i.status, pid: i.projectId })));
     return `
@@ -852,6 +875,14 @@
         </section>
         <section class="doc-preview card" id="quote-preview" aria-label="Voorbeeld document"></section>
       </div>
+      <section class="card sign-overview">
+        <div class="card-head"><h2>${icon('pen')} Digitaal ondertekenen</h2><span class="small muted">${Object.keys(S.quotes).filter(k => !S.quotes[k].signed).length} wacht op handtekening</span></div>
+        <ul class="list">${Object.keys(S.quotes).map(k => { const qq = S.quotes[k], pp = proj(k); return `<li class="row-item sign-row">
+          <span class="icon-box">${icon('file')}</span>
+          <div class="grow"><div class="strong">${esc(qq.nr)} · ${esc(pp.klant)}</div>${signStatusHtml(qq)}</div>
+          <div class="row gap wrap sign-row-actions">${qq.signed ? '' : `<button class="btn sm" data-action="sign-copy" data-id="${k}">${icon('link')} Link voor ondertekening kopiëren</button>`}<button class="btn sm ghost" data-action="quote-view" data-id="${k}">Bekijk</button></div>
+        </li>`; }).join('') || '<li class="muted small">Geen offertes die op een handtekening wachten.</li>'}</ul>
+      </section>
       <section class="card">
         <div class="card-head"><h2>Recente documenten</h2></div>
         <div class="table-wrap"><table class="table">
@@ -1250,11 +1281,11 @@
   function viewSettings() {
     const st = S.settings;
     const plans = [
-      { naam: 'Basis', prijs: 24, f: ['Onbeperkt projecten & klanten', 'Klantportaal met jouw logo', 'Offertes & facturen met iDEAL-betaallink', 'Uren, kilometers & urencriterium', '250 GB opslag', 'Soevereine hosting in de EU · AVG-proof'] },
-      { naam: 'Pro', prijs: 39, f: ['Alles uit Basis', 'Review met feedback op timecode', 'Showreel-site op eigen domein', 'Boekhoudkoppelingen', 'Freelancers & projectmarge', '2 TB opslag', 'Soevereine hosting in de EU · AVG-proof'] }
+      { naam: 'Basis', prijs: 24, f: ['Onbeperkt projecten & klanten', 'Klantportaal met jouw logo', 'Offertes & facturen met iDEAL-betaallink', ['Offertes digitaal laten ondertekenen'], ['Callsheets per opnamedag'], ['Agenda-koppeling (Outlook & Google)'], 'Uren, kilometers & urencriterium', '250 GB opslag', 'Soevereine hosting in de EU · AVG-proof'] },
+      { naam: 'Pro', prijs: 39, f: ['Alles uit Basis, incl. digitaal ondertekenen, callsheets & agenda-koppeling', ['Timer voor uren'], ['Ondertiteling & transcriptie (verwerkt in de EU)'], 'Review met feedback op timecode', 'Showreel-site op eigen domein', 'Boekhoudkoppelingen', 'Freelancers & projectmarge', '2 TB opslag', 'Soevereine hosting in de EU · AVG-proof'] }
     ];
     return `
-      <div class="page-head"><div><h1>Instellingen</h1><p class="muted">Profiel, abonnement, hosting & privacy, e-mail en koppelingen</p></div><div class="head-actions"><button class="btn primary" data-action="save-settings">${icon('check')} Opslaan</button></div></div>
+      <div class="page-head"><div><h1>Instellingen</h1><p class="muted">Profiel, abonnement, hosting & privacy, e-mail, agenda en koppelingen</p></div><div class="head-actions"><button class="btn primary" data-action="save-settings">${icon('check')} Opslaan</button></div></div>
       <div class="grid-2">
         <section class="card">
           <div class="card-head"><h2>Bedrijfsprofiel</h2></div>
@@ -1277,13 +1308,14 @@
           <a class="btn" href="#/klant/p1">${icon('eye')} Bekijk als klant</a>
           ${themeSettingsHtml()}
         </section>
-        <section class="card">
+        <section class="card" id="abonnement">
           <div class="card-head"><h2>Abonnement</h2><span class="small muted">per maand, excl. btw</span></div>
+          <div class="plan-demo"><span class="small"><strong>Demo:</strong> bekijk als</span><div class="seg sm" role="group" aria-label="Demo: bekijk als">${['Basis', 'Pro'].map(x => `<button class="${st.plan === x ? 'active' : ''}" data-action="plan-demo" data-plan="${x}" aria-pressed="${st.plan === x}">${x}</button>`).join('')}</div><span class="tiny muted">Zo zie je welke functies alleen in Pro zitten.</span></div>
           <div class="plans">${plans.map(pl => `
             <div class="plan ${st.plan === pl.naam ? 'current' : ''}">
               <div class="row-between"><span class="strong">${pl.naam}</span>${st.plan === pl.naam ? '<span class="pill inv-betaald">Huidig plan</span>' : ''}</div>
               <div class="price">€${pl.prijs}<small> /mnd</small></div>
-              <ul>${pl.f.map(x => `<li>${icon('check')} ${esc(x)}</li>`).join('')}</ul>
+              <ul>${pl.f.map(x => Array.isArray(x) ? `<li>${icon('check')} <span>${esc(x[0])} <span class="new-tag">Nieuw</span></span></li>` : `<li>${icon('check')} ${esc(x)}</li>`).join('')}</ul>
               <button class="btn block ${st.plan === pl.naam ? '' : 'primary'}" data-action="set-plan" data-plan="${pl.naam}" ${st.plan === pl.naam ? 'disabled' : ''}>${st.plan === pl.naam ? 'Je huidige plan' : 'Overstappen naar ' + pl.naam}</button>
             </div>`).join('')}</div>
           <p class="tiny muted">Prototype: de verdeling van functies over de plannen is een voorstel. Er wordt niets afgeschreven.</p>
@@ -1313,12 +1345,13 @@
           <span class="tiny muted">Je klanten zien in hun klantportaal: “Veilig gedeeld · gehost in de EU”.</span>
         </div>
       </section>
-      ${emailSettingsHtml()}`;
+      ${emailSettingsHtml()}
+      ${agendaSettingsHtml()}`;
   }
   function viewNotFound() { return `<div class="empty card">${icon('search')}<h2>Pagina niet gevonden</h2><p class="muted">Deze pagina bestaat niet in het prototype.</p><a class="btn primary" href="#/dashboard">Naar dashboard</a></div>`; }
 
   // ---------- Info-menu, versie, nieuws & support (demo, bewaard in localStorage) ----------
-  const APP_VERSIE = '0.3.0', APP_BUILD = '2026-10-03';
+  const APP_VERSIE = '0.4.0', APP_BUILD = '2026-10-03';
   const NEWS_KEY = 'diafragmo-nieuws-gelezen', TICKETS_KEY = 'diafragmo-tickets';
   const versieLabel = () => `Versie ${APP_VERSIE} (prototype)`;
   const buildLabel = () => `build ${fdate(APP_BUILD)}`;
@@ -1327,6 +1360,13 @@
   const fdt = s => { const d = new Date(s); return isNaN(d) ? esc(s) : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
   const fdtShort = s => { const d = new Date(s); if (isNaN(d)) return esc(s); const n = new Date(); return d.toDateString() === n.toDateString() ? `vandaag ${p2(d.getHours())}:${p2(d.getMinutes())}` : `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
   const CHANGELOG = [
+    { v: '0.4.0', datum: '2026-10-03', items: [
+      ['pen', 'Offertes digitaal laten ondertekenen', 'Je klant tekent de offerte in het klantportaal met naam en handtekening. Het project gaat automatisch naar Pre-productie en de aanbetalingsfactuur (30%) staat als concept klaar.'],
+      ['calendar', 'Callsheet per opnamedag', 'Locatie en parkeren, call time, tijdsplanning, crew en freelancers, contactpersoon, shotlist en notities op één blad. Deel het met crew en klant of download als PDF.'],
+      ['link', 'Agenda-koppeling met Outlook en Google Agenda', 'Opnamedagen en deadlines automatisch in je agenda, vrij/bezet zien bij het plannen en een weekoverzicht op het dashboard.'],
+      ['clock', 'Timer voor uren', 'Start en stop een timer per project, ook op je telefoon. De lopende timer blijft zichtbaar in de topbalk en je uren tellen direct mee voor je urencriterium.', true],
+      ['msg', 'Ondertiteling en transcriptie', 'Transcript met tijdcodes, ondertitels in de speler, download als .srt of inbranden voor social. Verwerkt in de EU.', true]
+    ] },
     { v: '0.3.0', datum: '2026-10-03', items: [
       ['sun', 'Licht en donker thema', 'Volgt automatisch je systeeminstelling. Wisselen kan met de knop in de topbalk of via Instellingen → Weergave.'],
       ['eye', 'Logo past zich aan per thema', 'Het diafragma-beeldmerk en het woordmerk kleuren mee met de achtergrond, ook in het klantportaal.'],
@@ -1458,8 +1498,8 @@
     markNewsRead();
     modal({
       title: 'Nieuw in deze versie', body: CHANGELOG.map((c, i) => `<section class="cl-ver">
-          <div class="cl-head"><span class="vtag">v${c.v}</span><span class="small muted">${fdate(c.datum)}</span>${i === 0 ? '<span class="pill inv-betaald">Huidige versie</span>' : ''}</div>
-          <ul class="cl-list">${c.items.map(it => `<li>${icon(it[0])}<div><strong>${esc(it[1])}</strong><span>${esc(it[2])}</span></div></li>`).join('')}</ul></section>`).join('') +
+          <div class="cl-head"><span class="vtag">v${c.v}</span>${i === 0 ? `<strong>Nieuw in ${esc(c.v)}</strong>` : ''}<span class="small muted">${fdate(c.datum)}</span>${i === 0 ? '<span class="pill inv-betaald">Huidige versie</span>' : ''}</div>
+          <ul class="cl-list">${c.items.map(it => `<li>${icon(it[0])}<div><strong>${esc(it[1])}${it[3] ? ' ' + proBadge() : ''}</strong><span>${esc(it[2])}</span></div></li>`).join('')}</ul></section>`).join('') +
         `<p class="tiny muted">Prototype – versienummers en data zijn indicatief.</p>`,
       actions: [{ label: 'Feedback of vraag?', cls: 'ghost', onClick: () => go('#/support/nieuw') }, { label: 'Sluiten', cls: 'primary', onClick: closeModal }]
     });
@@ -1565,6 +1605,636 @@
   }
   function tkSystem(t, veld, naar, extra) { const now = nowLocal(); t.berichten.push(Object.assign({ rol: 'systeem', veld, naar, tijd: now }, extra || {})); t.bijgewerkt = now; }
 
+  // ---------- 0.4.0: demo-status in localStorage (plan, agenda, timer, handtekeningen, callsheets, ondertitels) ----------
+  const DEMO_KEY = 'diafragmo-demo-040';
+  function demoLoad() { try { return JSON.parse(localStorage.getItem(DEMO_KEY)) || {}; } catch (e) { return {}; } }
+  function demoSave() {
+    const signed = {}; Object.keys(S.quotes).forEach(k => { if (S.quotes[k].signed) signed[k] = S.quotes[k].signed; });
+    const shots = {}; Object.keys(D.shotlist).forEach(k => { if (S.shotlist[k]) shots[k] = S.shotlist[k].map(x => !!x.klaar); });
+    const o = { plan: S.settings.plan, agenda: S.agenda, timer: S.timer, timerUren: S.timerUren, signed, callsheets: S.callsheets, subs: S.subs, shots };
+    try { localStorage.setItem(DEMO_KEY, JSON.stringify(o)); } catch (e) { /* privémodus: alleen in geheugen */ }
+  }
+  function applyDemo(o, live) {
+    if (o.plan === 'Basis' || o.plan === 'Pro') S.settings.plan = o.plan;
+    if (o.agenda) ['outlook', 'google'].forEach(k => { if (o.agenda[k]) Object.assign(S.agenda[k], o.agenda[k]); });
+    if (o.agenda) ['autoZet', 'checkBeschikbaar'].forEach(k => { if (typeof o.agenda[k] === 'boolean') S.agenda[k] = o.agenda[k]; });
+    S.timer = o.timer && o.timer.pid && proj(o.timer.pid) && o.timer.start ? o.timer : null;
+    (o.timerUren || []).forEach(u => {
+      if (S.timerUren.some(x => x.id === u.id)) return; const p = proj(u.pid); if (!p) return; ensure(p);
+      S.timerUren.push(u); S.hours[u.pid].push({ datum: u.datum, activiteit: u.activiteit, uren: u.uren, km: u.km || 0, tid: u.id }); addedHours += Number(u.uren) || 0;
+    });
+    Object.keys(o.signed || {}).forEach(pid => { const q = S.quotes[pid]; if (q && !q.signed) { q.signed = o.signed[pid]; applySigned(pid); if (live) toast(`Melding: ${esc(q.signed.naam)} heeft offerte ${esc(q.nr)} ondertekend`); } });
+    if (o.callsheets && typeof o.callsheets === 'object') S.callsheets = o.callsheets;
+    if (o.subs && typeof o.subs === 'object') S.subs = o.subs;
+    Object.keys(o.shots || {}).forEach(k => { const sl = S.shotlist[k]; if (sl && Array.isArray(o.shots[k])) sl.forEach((x, i) => { if (i < o.shots[k].length) x.klaar = !!o.shots[k][i]; }); });
+  }
+
+  // ---------- Pro-functies (timer, ondertiteling) ----------
+  const isPro = () => S.settings.plan === 'Pro';
+  const proBadge = lock => `<span class="pro-badge" title="Onderdeel van Pro">${lock ? icon('lock') : ''}Pro</span>`;
+  const PRO_INFO = {
+    timer: { titel: 'Timer voor uren', tekst: 'Start en stop een timer per project, ook op je telefoon. Je uren tellen direct mee voor je urencriterium.' },
+    subs: { titel: 'Ondertiteling & transcriptie', tekst: 'Automatisch een transcript met tijdcodes, ondertitels in de speler, download als .srt of inbranden voor social. Verwerkt in de EU.' }
+  };
+  function lockedHtml(f) {
+    const i = PRO_INFO[f];
+    return `<div class="pro-locked"><span class="pl-ic">${icon('lock')}</span><div class="grow"><div class="strong">${esc(i.titel)} ${proBadge()}</div><div class="small muted"><strong class="pl-avail">Beschikbaar in Pro.</strong> ${esc(i.tekst)}</div></div><button class="btn primary sm" data-action="upgrade" data-f="${f}">${icon('sparkle')} Upgrade naar Pro</button></div>`;
+  }
+  function setPlan(plan, how) {
+    if (plan !== 'Basis' && plan !== 'Pro') return;
+    S.settings.plan = plan; demoSave();
+    toast(how === 'demo' ? `Demo: je bekijkt Diafragmo nu als ${esc(plan)}` : `Plan gewijzigd naar ${esc(plan)} (demo – er wordt niets afgeschreven)`);
+    renderKeep();
+  }
+  function upgradeModal(f) {
+    const rows = [
+      ['Projecten, klantportaal, offertes & facturen met iDEAL', 1, 1],
+      ['Offertes digitaal laten ondertekenen', 1, 1, 1],
+      ['Callsheets per opnamedag', 1, 1, 1],
+      ['Agenda-koppeling (Outlook & Google Agenda)', 1, 1, 1],
+      ['Review met feedback op timecode', 0, 1],
+      ['Showreel-site, boekhoudkoppelingen, projectmarge', 0, 1],
+      ['Timer voor uren', 0, 1, 1],
+      ['Ondertiteling & transcriptie (verwerkt in de EU)', 0, 1, 1],
+      ['Opslag', '250 GB', '2 TB']
+    ];
+    const cell = v => v === 1 ? `<span class="ok">${icon('check')}</span>` : v === 0 ? '<span class="muted">–</span>' : esc(v);
+    modal({
+      title: f && PRO_INFO[f] ? `${PRO_INFO[f].titel} is onderdeel van Pro` : 'Basis en Pro vergelijken', wide: true,
+      body: `${f && PRO_INFO[f] ? `<p class="small muted">${esc(PRO_INFO[f].tekst)}</p>` : ''}
+        <div class="table-wrap"><table class="table cmp-table">
+          <thead><tr><th>Functie</th><th class="c">Basis<div class="cmp-price">€24<small>/mnd</small></div></th><th class="c pro-col">Pro<div class="cmp-price">€39<small>/mnd</small></div></th></tr></thead>
+          <tbody>${rows.map(r => `<tr><td>${esc(r[0])}${r[3] ? ' <span class="new-tag">Nieuw</span>' : ''}</td><td class="c">${cell(r[1])}</td><td class="c pro-col">${cell(r[2])}</td></tr>`).join('')}</tbody>
+        </table></div>
+        <p class="tiny muted">Prijzen per maand, excl. btw. Prototype: er wordt niets afgeschreven – de overstap is direct zichtbaar.</p>`,
+      actions: [{ label: 'Niet nu', cls: 'ghost', onClick: closeModal }, { label: `${icon('sparkle')} Upgrade naar Pro`, cls: 'primary', onClick: () => { closeModal(); setPlan('Pro'); } }]
+    });
+  }
+
+  // ---------- Timer voor uren (Pro) ----------
+  const ACTS = ['Opname', 'Montage', 'Overleg', 'Reistijd'];
+  const ACT_IC = { Opname: 'camera', Montage: 'film', Overleg: 'users', Reistijd: 'pin' };
+  const elapsed = () => S.timer ? Math.max(0, (Date.now() - S.timer.start) / 1000) : 0;
+  const hms = s => `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  function timerBtnHtml(p, sm) {
+    const c = sm ? 'sm' : '';
+    if (!isPro()) return `<button class="btn ${c} ghost locked-btn" data-action="upgrade" data-f="timer" title="Beschikbaar in Pro">${icon('clock')} Timer ${proBadge(true)}</button>`;
+    if (S.timer && S.timer.pid === p.id) return `<button class="btn ${c} timer-run" data-action="timer-stop" title="Stoppen en uren opslaan"><span class="timer-dot"></span> Stop <span class="mono" data-timer-val>${hms(elapsed())}</span></button>`;
+    return `<button class="btn ${c}" data-action="timer-start" data-id="${p.id}">${icon('clock')} Start timer ${proBadge()}</button>`;
+  }
+  function timerPillHtml() {
+    if (!S.timer || !isPro()) return '';
+    const p = proj(S.timer.pid); if (!p) return '';
+    return `<div class="timer-pill"><button class="tp-main" data-action="go" data-href="#/project/${p.id}/uren" title="Timer loopt voor ${esc(p.titel)} – naar uren"><span class="timer-dot"></span><span class="tp-time mono" data-timer-val>${hms(elapsed())}</span><span class="tp-name">${esc(p.titel)}</span></button><button class="tp-stop" data-action="timer-stop" aria-label="Timer stoppen en uren opslaan" title="Stoppen en uren opslaan"><span class="stop-sq"></span></button></div>`;
+  }
+  function renderTimerPill() {
+    let el = $('#timer-pill');
+    if (!el) { const ta = $('.topbar .top-actions'); if (!ta) return; el = document.createElement('div'); el.id = 'timer-pill'; ta.parentNode.insertBefore(el, ta); }
+    const h = timerPillHtml(); el.innerHTML = h; el.hidden = !h; document.body.classList.toggle('timer-on', !!h);
+  }
+  setInterval(() => { if (!S.timer) return; const v = hms(elapsed()); $$('[data-timer-val]').forEach(x => { x.textContent = v; }); }, 1000);
+  function timerStart(pid) {
+    if (!isPro()) { upgradeModal('timer'); return; }
+    const p = proj(pid); if (!p) return;
+    if (S.timer && S.timer.pid !== pid) {
+      const cur = proj(S.timer.pid);
+      modal({ title: 'Er loopt al een timer', body: `<p>De timer loopt nog voor <strong>${esc(cur.titel)}</strong> (${hms(elapsed())}). Stop die eerst en sla de uren op; daarna kun je een nieuwe timer starten.</p>`,
+        actions: [{ label: 'Annuleren', cls: 'ghost', onClick: closeModal }, { label: 'Lopende timer stoppen', cls: 'primary', onClick: timerStopModal }] });
+      return;
+    }
+    if (S.timer) return;
+    ensure(p); S.timer = { pid, start: Date.now() }; demoSave();
+    toast(`Timer gestart voor “${esc(p.titel)}”`); renderKeep();
+  }
+  function timerStopModal() {
+    const t = S.timer; if (!t) return; const p = proj(t.pid); ensure(p);
+    const secs = elapsed(); const uren = Math.max(0.25, Math.ceil(secs / 900) * 0.25);
+    const defAct = p.status === 'Opname' ? 'Opname' : (p.status === 'Montage' || p.status === 'Feedback') ? 'Montage' : 'Overleg';
+    const st = new Date(t.start);
+    modal({
+      title: 'Timer stoppen',
+      body: `<form id="timer-form" class="form-col">
+        <div class="timer-sum"><span class="timer-dot"></span><div class="grow"><div class="strong">${esc(p.titel)}</div><div class="tiny muted">${esc(p.klant)} · gestart ${String(st.getHours()).padStart(2, '0')}:${String(st.getMinutes()).padStart(2, '0')} · gemeten ${hms(secs)}</div></div></div>
+        <div><div class="lbl-txt">Activiteit</div><div class="act-chips" role="radiogroup" aria-label="Activiteit">${ACTS.map(a => `<label class="act-chip"><input type="radio" name="act" value="${a}" ${a === defAct ? 'checked' : ''}><span>${icon(ACT_IC[a])} ${a}</span></label>`).join('')}</div></div>
+        <label>Omschrijving (optioneel)<input name="omschrijving" placeholder="Bijv. montage v4 – logo langer in beeld" autocomplete="off"></label>
+        <div class="form-grid two tight"><label>Datum<input type="date" name="datum" value="${todayIso()}" required></label><label>Uren<input type="number" name="uren" min="0.25" step="0.25" value="${uren}" required></label></div>
+        <label>Kilometers (optioneel)<input type="number" name="km" min="0" step="1" placeholder="0"></label>
+        <p class="tiny muted">Afgerond op hele kwartieren, aan te passen. Telt mee voor je urencriterium (nu ${num(urenTotaal(), 2)} / ${num(S.urenDoel, 0)} uur).</p>
+        <button type="submit" hidden></button></form>`,
+      actions: [
+        { label: 'Verwerpen', cls: 'ghost', onClick: () => { S.timer = null; demoSave(); closeModal(); toast('Timer verworpen – er is niets opgeslagen'); renderKeep(); } },
+        { label: 'Laat lopen', cls: '', onClick: closeModal },
+        { label: `${icon('check')} Uren opslaan`, cls: 'primary', onClick: timerSave }
+      ]
+    });
+    $('#timer-form').addEventListener('submit', e => { e.preventDefault(); e.stopPropagation(); timerSave(); });
+  }
+  function timerSave() {
+    const f = $('#timer-form'); if (!f || !f.reportValidity() || !S.timer) return;
+    const d = Object.fromEntries(new FormData(f).entries()); const pid = S.timer.pid, p = proj(pid);
+    const u = Math.round((Number(d.uren) || 0) * 100) / 100; const oms = (d.omschrijving || '').trim();
+    const entry = { id: 't' + Date.now(), pid, datum: d.datum, act: d.act, oms, activiteit: d.act + (oms ? ' – ' + oms : ''), uren: u, km: Number(d.km) || 0 };
+    S.timerUren.push(entry); S.hours[pid].push({ datum: entry.datum, activiteit: entry.activiteit, uren: u, km: entry.km, tid: entry.id }); addedHours += u;
+    S.timer = null; demoSave(); closeModal();
+    toast(`${num(u, 2)} uur ${esc(d.act.toLowerCase())} opgeslagen bij “${esc(p.titel)}” · urencriterium nu ${num(urenTotaal(), 2)} / ${num(S.urenDoel, 0)}`);
+    renderKeep();
+  }
+  function timerEditModal(pid, tid) {
+    const e = S.timerUren.find(x => x.id === tid), row = (S.hours[pid] || []).find(x => x.tid === tid); if (!e || !row) return;
+    modal({
+      title: 'Urenregel bewerken',
+      body: `<form id="tedit-form" class="form-col">
+        <div><div class="lbl-txt">Activiteit</div><div class="act-chips">${ACTS.map(a => `<label class="act-chip"><input type="radio" name="act" value="${a}" ${a === e.act ? 'checked' : ''}><span>${icon(ACT_IC[a])} ${a}</span></label>`).join('')}</div></div>
+        <label>Omschrijving<input name="omschrijving" value="${esc(e.oms || '')}" autocomplete="off"></label>
+        <div class="form-grid two tight"><label>Datum<input type="date" name="datum" value="${esc(e.datum)}" required></label><label>Uren<input type="number" name="uren" min="0.25" step="0.25" value="${e.uren}" required></label></div>
+        <label>Kilometers<input type="number" name="km" min="0" step="1" value="${e.km || 0}"></label><button type="submit" hidden></button></form>`,
+      actions: [{ label: 'Verwijderen', cls: 'ghost', onClick: () => {
+        addedHours -= Number(e.uren) || 0; S.timerUren = S.timerUren.filter(x => x.id !== tid); S.hours[pid] = S.hours[pid].filter(x => x.tid !== tid); demoSave(); closeModal(); toast('Urenregel verwijderd'); renderKeep();
+      } }, { label: 'Annuleren', cls: 'ghost', onClick: closeModal }, { label: 'Opslaan', cls: 'primary', onClick: () => {
+        const f = $('#tedit-form'); if (!f.reportValidity()) return; const d = Object.fromEntries(new FormData(f).entries());
+        const u = Math.round((Number(d.uren) || 0) * 100) / 100; addedHours += u - (Number(e.uren) || 0);
+        e.act = d.act; e.oms = d.omschrijving.trim(); e.activiteit = e.act + (e.oms ? ' – ' + e.oms : ''); e.datum = d.datum; e.uren = u; e.km = Number(d.km) || 0;
+        Object.assign(row, { datum: e.datum, activiteit: e.activiteit, uren: u, km: e.km }); demoSave(); closeModal(); toast('Urenregel bijgewerkt'); renderKeep();
+      } }]
+    });
+    $('#tedit-form').addEventListener('submit', ev => { ev.preventDefault(); ev.stopPropagation(); modalHandlers[2].onClick(); });
+  }
+
+  // ---------- Offerte digitaal laten ondertekenen ----------
+  const quoteCalc = q => { const sub = q.lines.reduce((a, l) => a + l.aantal * l.prijs, 0); const btw = Math.round(sub * 21) / 100; return { sub, btw, tot: sub + btw, aanb: Math.round((sub + btw) * q.aanbetalingPct) / 100 }; };
+  const signLink = pid => location.href.split('#')[0] + '#/klant/' + pid + '/offerte';
+  function nextInvNr() { const n = Math.max(0, ...S.invoices.map(i => parseInt(String(i.nr).split('-')[1], 10) || 0)); return 'F2026-' + String(n + 1).padStart(3, '0'); }
+  function applySigned(pid) {
+    const p = proj(pid), q = S.quotes[pid]; if (!p || !q || !q.signed) return; ensure(p);
+    const c = quoteCalc(q), sg = q.signed, d = sg.datum.slice(0, 10);
+    q.status = 'Geaccepteerd';
+    const f = S.finance[pid]; f.offerte.status = 'Geaccepteerd'; f.offerte.datum = fdateShort(d).replace(/^\S+ /, '');
+    if (STATUSES.indexOf(p.status) < STATUSES.indexOf('Pre-productie')) p.status = 'Pre-productie';
+    if (!S.invoices.some(i => i.nr === sg.invNr)) S.invoices.push({ nr: sg.invNr, projectId: pid, klant: p.klant, omschrijving: `Aanbetaling ${q.aanbetalingPct}%`, bedrag: c.aanb, vervalt: isoAdd(d, 14), status: 'Concept', auto: true });
+    f.aanbetaling = { nr: sg.invNr, bedrag: c.aanb, status: 'Concept', datum: f.offerte.datum };
+  }
+  function unsign(pid) {
+    const q = S.quotes[pid], p = proj(pid); if (!q || !q.signed) return;
+    S.invoices = S.invoices.filter(i => i.nr !== q.signed.invNr);
+    q.signed = null; q.status = 'Verstuurd';
+    const base = D.finance[pid]; if (base) { S.finance[pid].offerte = Object.assign({}, base.offerte); S.finance[pid].aanbetaling = Object.assign({}, base.aanbetaling); }
+    const orig = D.projects.find(x => x.id === pid); if (orig) p.status = orig.status;
+  }
+  function signQuote(pid, naam, img) {
+    const q = S.quotes[pid]; if (!q || q.signed) return;
+    q.signed = { naam, datum: nowLocal(), img, invNr: nextInvNr() };
+    applySigned(pid); S.signOpen = false; demoSave(); renderKeep();
+    toast(`Melding voor Sanne: ${esc(naam)} heeft offerte ${esc(q.nr)} ondertekend · project naar Pre-productie · aanbetalingsfactuur ${esc(q.signed.invNr)} (concept) klaargezet`);
+  }
+  function quoteDocHtml(p, q) {
+    const c = quoteCalc(q), sg = q.signed;
+    return `<div class="doc quote-doc">
+      <div class="doc-top"><div class="brand"><span class="brand-logo">SV</span><div><div class="strong">${esc(D.studio.naam)}</div><div class="tiny muted">${esc(D.studio.email)}<br>KvK ${esc(D.studio.kvk)}<br>Btw ${esc(D.studio.btw)}</div></div></div><div class="doc-title">OFFERTE<div class="tiny muted">${esc(q.nr)}</div></div></div>
+      <div class="doc-meta"><div><div class="tiny muted">Aan</div><div class="strong">${esc(q.aan || p.klant)}</div><div class="small">t.a.v. ${esc(q.tav || p.contact)}</div></div><div><div class="tiny muted">Datum</div><div class="small">${fdate(q.datum)}</div><div class="tiny muted">Geldig tot</div><div class="small">${fdate(q.geldig)}</div></div></div>
+      <div class="small"><span class="muted">Betreft:</span> ${esc(p.titel)}</div>
+      ${q.intro ? `<div class="small">${esc(q.intro)}</div>` : ''}
+      <table class="doc-lines"><thead><tr><th>Omschrijving</th><th class="num">Aantal</th><th class="num">Totaal</th></tr></thead>
+        <tbody>${q.lines.map(l => `<tr><td>${esc(l.omschrijving)}</td><td class="num">${num(l.aantal, 2)} ${esc(l.eenheid)}</td><td class="num">${eur(l.aantal * l.prijs)}</td></tr>`).join('')}</tbody></table>
+      <dl class="sum doc-sum"><dt>Subtotaal</dt><dd>${eur(c.sub)}</dd><dt>Btw 21%</dt><dd>${eur(c.btw)}</dd><dt class="strong">Totaal</dt><dd class="strong">${eur(c.tot)}</dd><dt class="muted">Aanbetaling ${q.aanbetalingPct}% bij akkoord</dt><dd class="muted">${eur(c.aanb)}</dd></dl>
+      <div class="doc-terms"><div class="tiny strong">Voorwaarden</div><div class="tiny muted">${esc(q.voorwaarden || '')}</div></div>
+      <div class="doc-sign ${sg ? 'signed' : ''}">
+        <div class="doc-sign-box">${sg ? `<img src="${esc(sg.img)}" alt="Handtekening van ${esc(sg.naam)}">` : '<span class="tiny muted">Handtekening klant</span>'}</div>
+        <div class="tiny">${sg ? `Voor akkoord: <strong>${esc(sg.naam)}</strong><br>Digitaal ondertekend op ${fdt(sg.datum)}` : '<span class="muted">Voor akkoord: nog niet ondertekend</span>'}</div>
+        ${sg ? '<span class="doc-stamp">Geaccepteerd</span>' : ''}
+      </div>
+      <div class="tiny muted doc-foot">Voorbeelddocument – fictieve gegevens</div>
+    </div>`;
+  }
+  function signStatusHtml(q) {
+    return q.signed
+      ? `<div class="sign-status done">${icon('check')}<span>Ondertekend door <strong>${esc(q.signed.naam)}</strong> op ${fdt(q.signed.datum)}</span></div>`
+      : `<div class="sign-status pending">${icon('clock')}<span><strong>Verstuurd</strong> · wacht op handtekening <span class="muted">(sinds ${fdate(q.verstuurd)})</span></span></div>`;
+  }
+  function quoteSignCard(p) {
+    const q = S.quotes[p.id]; if (!q) return '';
+    const c = quoteCalc(q), inv = q.signed ? S.invoices.find(i => i.nr === q.signed.invNr) : null;
+    return `<section class="card sign-card">
+      <div class="card-head"><h2>Offerte ${esc(q.nr)} · digitaal ondertekenen</h2>${statusPillInv(q.status)}</div>
+      <div class="sign-card-body">
+        <div class="grow">
+          ${signStatusHtml(q)}
+          <p class="small muted">${eur(c.tot)} incl. btw · aan ${esc(q.tav || p.contact)}. ${q.signed ? `Project staat op <strong>${esc(p.status)}</strong>.` : `Bij ondertekening gaat het project automatisch naar Pre-productie en staat de aanbetalingsfactuur (${q.aanbetalingPct}%) als concept klaar.`}</p>
+          ${inv ? `<div class="sign-inv">${icon('euro')}<span class="grow small">Aanbetalingsfactuur <strong>${esc(inv.nr)}</strong> · ${eur(inv.bedrag)} · ${statusPillInv(inv.status)}</span>${inv.status === 'Concept' ? `<button class="btn sm" data-action="send-invoice" data-nr="${esc(inv.nr)}">${icon('send')} Versturen</button>` : ''}</div>` : ''}
+          <div class="row gap wrap sign-actions">
+            ${q.signed ? '' : `<button class="btn sm primary" data-action="sign-copy" data-id="${p.id}">${icon('link')} Link voor ondertekening kopiëren</button>`}
+            <button class="btn sm" data-action="quote-view" data-id="${p.id}">${icon('file')} Bekijk offerte</button>
+            <a class="btn sm ghost" href="#/klant/${p.id}/offerte">${icon('eye')} Bekijk als klant</a>
+            ${q.signed ? `<button class="btn sm ghost" data-action="sign-reset" data-id="${p.id}">Demo: handtekening resetten</button>` : `<button class="btn sm ghost" data-action="compose" data-id="${p.id}" data-kind="offerte">${icon('send')} Herinnering sturen</button>`}
+          </div>
+        </div>
+        ${q.signed ? `<div class="sig-paper" title="Handtekening van ${esc(q.signed.naam)}"><img src="${esc(q.signed.img)}" alt="Handtekening van ${esc(q.signed.naam)}"></div>` : ''}
+      </div>
+    </section>`;
+  }
+  function portalQuoteCard(p, q) {
+    const c = quoteCalc(q);
+    return `<section class="pcard span-2 pq-card">
+      <h2>${icon('file')} Offerte ${esc(q.nr)} ${q.signed ? statusPillInv('Geaccepteerd') : '<span class="pill inv-verstuurd">Wacht op jouw akkoord</span>'}</h2>
+      <p class="small muted">${esc(q.intro || '')}</p>
+      <ul class="pq-lines">${q.lines.map(l => `<li><span>${esc(l.omschrijving)}</span><strong>${eur(l.aantal * l.prijs)}</strong></li>`).join('')}</ul>
+      <dl class="sum"><dt>Totaal excl. btw</dt><dd>${eur(c.sub)}</dd><dt class="strong">Totaal incl. 21% btw</dt><dd class="strong">${eur(c.tot)}</dd></dl>
+      ${q.signed ? `<div class="pq-signed"><div class="sig-paper sm"><img src="${esc(q.signed.img)}" alt="Handtekening van ${esc(q.signed.naam)}"></div><div class="grow small">${icon('check')} Ondertekend door <strong>${esc(q.signed.naam)}</strong> op ${fdt(q.signed.datum)}</div><a class="btn sm" href="#/klant/${p.id}/offerte">Bekijk offerte</a></div>`
+        : `<div class="pq-cta"><div class="grow"><div class="strong">Akkoord met de offerte?</div><div class="small muted">Onderteken digitaal – het duurt minder dan een minuut. Geldig tot ${fdate(q.geldig)}.</div></div><a class="btn brand-btn" href="#/klant/${p.id}/offerte">${icon('pen')} Akkoord en ondertekenen</a></div>`}
+    </section>`;
+  }
+  function signPanelHtml(p, q) {
+    const c = quoteCalc(q), fn = firstName(q.tav || p.contact);
+    if (q.signed) return `<div class="sign-done"><div class="paid-check">${icon('check')}</div><h2>Offerte ondertekend</h2>
+      <p class="small muted">Bedankt, ${esc(firstName(q.signed.naam))}! ${esc(D.studio.eigenaar)} heeft automatisch bericht gekregen. Je ontvangt de aanbetalingsfactuur van ${q.aanbetalingPct}% (${eur(c.aanb)}) per e-mail.</p>
+      <div class="sig-paper"><img src="${esc(q.signed.img)}" alt="Handtekening van ${esc(q.signed.naam)}"></div>
+      <div class="tiny muted">Ondertekend door ${esc(q.signed.naam)} · ${fdt(q.signed.datum)}</div>
+      <a class="btn brand-btn block" href="#/klant/${p.id}">Terug naar je project</a>
+      <button class="btn ghost block sm" data-action="download" data-name="${esc(q.nr)}-ondertekend.pdf">${icon('download')} Ondertekende offerte (PDF)</button></div>`;
+    if (!S.signOpen) return `<h2>${icon('file')} Jouw offerte</h2>
+      <div class="invoice-mini"><div class="small muted">${esc(q.nr)} · ${esc(p.titel)}</div><div class="amount">${eur(c.tot)}</div><div class="small muted">incl. 21% btw · geldig tot ${fdate(q.geldig)}</div></div>
+      <p class="small muted">Hoi ${esc(fn)}, lees de offerte rustig door. Akkoord? Dan onderteken je hier digitaal met je naam en handtekening.</p>
+      <button class="btn brand-btn block" data-action="sign-open">${icon('pen')} Akkoord en ondertekenen</button>
+      <button class="btn ghost block sm" data-action="download" data-name="${esc(q.nr)}.pdf">${icon('download')} Offerte als PDF</button>`;
+    return `<h2>${icon('pen')} Akkoord en ondertekenen</h2>
+      <form id="sign-form" class="sign-form" data-form="sign-quote" data-id="${p.id}" novalidate>
+        <label>Je volledige naam<input name="naam" id="sign-name" required autocomplete="name" placeholder="Bijv. ${esc(q.tav || p.contact)}"></label>
+        <div><div class="lbl-txt">Je handtekening</div>
+          <div class="sig-pad" id="sig-pad"><canvas id="sig-canvas" aria-label="Teken hier je handtekening" role="img"></canvas><span class="sig-hint">Teken hier met je muis, vinger of pen</span><span class="sig-line"></span></div>
+          <div class="row-between sig-tools"><span class="tiny muted">Alleen gebruikt voor deze offerte.</span><button type="button" class="btn sm ghost" data-action="sig-clear">Wissen</button></div></div>
+        <label class="check"><input type="checkbox" name="akkoord" id="sign-akkoord"> Ik ga akkoord met de voorwaarden</label>
+        <button class="btn brand-btn block" type="submit" id="sign-submit" disabled>Ondertekenen</button>
+        <p class="tiny muted">Je naam, handtekening, datum en tijd worden bij de offerte opgeslagen, in de EU. Demo: er wordt niets echt verstuurd.</p>
+      </form>`;
+  }
+  function viewPortalQuote(p) {
+    const q = S.quotes[p.id];
+    if (!q) return `${portalBar(p, 'Klantweergave – offerte')}<div class="portal"><div class="empty card">${icon('file')}<p>Voor dit project staat geen offerte klaar om te ondertekenen.</p><a class="btn" href="#/klant/${p.id}">Naar het project</a></div></div>`;
+    return `${portalBar(p, `Je bekijkt de offerte zoals <strong>${esc(q.tav || p.contact)}</strong> die ziet`, '#/project/' + p.id + '/financien')}
+    <div class="portal" style="--brand:${S.showreel.kleur}">
+      <header class="portal-head"><div class="brand"><span class="brand-logo">SV</span><div><div class="strong">${esc(D.studio.naam)}</div><div class="tiny muted">Videoproductie · Zwolle</div></div></div><a class="btn sm ghost" href="#/klant/${p.id}">${icon('arrowLeft')} <span class="hide-sm">Naar je project</span></a></header>
+      <div class="pq-head"><div class="small muted">Offerte ${esc(q.nr)}</div><h1>${esc(p.titel)}</h1></div>
+      <div class="pq-wrap">
+        <div class="doc-preview pq-doc">${quoteDocHtml(p, q)}</div>
+        <aside class="pcard pq-sign" id="sign-panel">${signPanelHtml(p, q)}</aside>
+      </div>
+      <div class="eu-trust"><span class="eu-trust-badge">${euBadge('eu-flag')}${icon('lock')} Veilig ondertekenen · gehost in de EU</span></div>
+      <footer class="portal-foot">Klantportaal van ${esc(D.studio.naam)} · aangedreven door <span class="pf-brand"><img class="pf-mark" src="img/beeldmerk.svg" alt=""><strong>Diafragmo</strong></span> · Prototype – voorbeelddata</footer>
+    </div>`;
+  }
+  function updateSignBtn() {
+    const b = $('#sign-submit'); if (!b) return;
+    const n = $('#sign-name'), a = $('#sign-akkoord');
+    b.disabled = !(n && n.value.trim().length >= 2 && S.sigInk && a && a.checked);
+  }
+  function initSigPad() {
+    const c = $('#sig-canvas'), pad = $('#sig-pad'); if (!c || !pad) return;
+    const ctx = c.getContext('2d'); let drawing = false, last = null, w = 0;
+    S.sigInk = false;
+    const setup = () => {
+      const r = c.getBoundingClientRect(); if (!r.width || Math.round(r.width) === w) return; w = Math.round(r.width);
+      const dpr = window.devicePixelRatio || 1; c.width = Math.round(r.width * dpr); c.height = Math.round(r.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 2.4; ctx.strokeStyle = '#1b2a4a'; ctx.fillStyle = '#1b2a4a';
+      S.sigInk = false; pad.classList.remove('inked'); updateSignBtn();
+    };
+    setup();
+    const pos = e => { const r = c.getBoundingClientRect(); const pt = e.touches ? e.touches[0] : e; return { x: pt.clientX - r.left, y: pt.clientY - r.top }; };
+    const start = e => { e.preventDefault(); drawing = true; last = pos(e); ctx.beginPath(); ctx.arc(last.x, last.y, 1.2, 0, Math.PI * 2); ctx.fill(); if (!S.sigInk) { S.sigInk = true; pad.classList.add('inked'); updateSignBtn(); } };
+    const move = e => { if (!drawing) return; e.preventDefault(); const pt = pos(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(pt.x, pt.y); ctx.stroke(); last = pt; };
+    const end = () => { drawing = false; };
+    if (window.PointerEvent) {
+      c.addEventListener('pointerdown', e => { try { c.setPointerCapture(e.pointerId); } catch (er) { /* noop */ } start(e); });
+      c.addEventListener('pointermove', move); c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
+    } else {
+      c.addEventListener('mousedown', start); c.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+      c.addEventListener('touchstart', start, { passive: false }); c.addEventListener('touchmove', move, { passive: false }); c.addEventListener('touchend', end);
+    }
+    const onResize = () => setup(); window.addEventListener('resize', onResize); cleanupFns.push(() => window.removeEventListener('resize', onResize));
+    S.sigClear = () => { ctx.clearRect(0, 0, c.width, c.height); S.sigInk = false; pad.classList.remove('inked'); updateSignBtn(); };
+  }
+  function copyText(txt, msg) {
+    const fallback = () => { const t = document.createElement('textarea'); t.value = txt; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0'; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) { /* noop */ } t.remove(); };
+    try { if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(txt).then(() => toast(msg), () => { fallback(); toast(msg); }); return; } } catch (e) { /* noop */ }
+    fallback(); toast(msg);
+  }
+
+  // ---------- Callsheet / draaiboek per opnamedag ----------
+  function csFromDay(p, d) {
+    const m = String(d.tijd || '').match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/);
+    const start = m ? m[1].padStart(5, '0') : '09:00', eind = m ? m[2].padStart(5, '0') : '17:00';
+    const loc = (S.planning[p.id].locaties || [])[0] || {};
+    const fl = (S.finance[p.id] || { freelancers: [] }).freelancers;
+    const first = S.planning[p.id].draaidagen.indexOf(d) === 0;
+    return {
+      titel: d.titel || 'Opnamedag', datum: d.datum, calltime: start, eind,
+      locatie: { naam: loc.naam || '', adres: d.locatie || loc.adres || '', parkeren: loc.notitie || '' },
+      blokken: p.id === 'p1' && first ? D.draaiboek.map(x => ({ tijd: x.tijd, wat: x.item })) : [{ tijd: start, wat: 'Call time crew · opbouw' }, { tijd: '12:30', wat: 'Lunch' }, { tijd: eind, wat: 'Afbouw en wrap' }],
+      crew: [{ naam: 'Sanne de Vries', rol: 'Regie & camera', tel: '06 0000 0001', freelancer: false }].concat(fl.map((f, i) => ({ naam: f.naam, rol: f.rol, tel: '06 0000 00' + String(12 + i * 11).padStart(2, '0'), freelancer: true }))),
+      klant: { naam: p.contact, rol: p.klant, tel: '06 0000 0090', email: clientEmail(p) },
+      notities: ''
+    };
+  }
+  function csList(p) {
+    if (!S.callsheets[p.id]) S.callsheets[p.id] = (S.planning[p.id].draaidagen || []).map(d => csFromDay(p, d));
+    return S.callsheets[p.id];
+  }
+  const csIn = (path, val, attrs, cls) => `<input class="cs-in ${cls || ''}" data-cs="${path}" value="${esc(val)}" ${attrs || ''}>`;
+  function weatherHtml(cs) {
+    const days = cs.datum ? Math.round((pd(cs.datum) - pd(todayIso())) / 864e5) : null;
+    const sub = days == null ? 'Kies eerst een opnamedatum.' : days > 5 ? `Beschikbaar vanaf ${fdateShort(isoAdd(cs.datum, -5))}, voor ${esc(cs.locatie.naam || 'de locatie')}.` : days < 0 ? 'Deze opnamedag is al geweest.' : 'In dit prototype wordt geen echte verwachting opgehaald.';
+    return `<div class="cs-weather"><span class="cs-w-ic">${icon('cloud')}</span><div><div class="strong">Weersverwachting verschijnt 5 dagen vooraf</div><div class="small muted">${sub}</div></div></div>`;
+  }
+  function tabCallsheet(p) {
+    const list = csList(p);
+    if (!list.length) return `<section class="card"><div class="empty">${icon('calendar')}<p>Nog geen opnamedag voor dit project. Maak een callsheet met locatie, call time, crew en shotlist.</p><button class="btn primary" data-action="cs-add" data-id="${p.id}">${icon('plus')} Callsheet aanmaken</button></div></section>`;
+    const i = Math.min(S.csSel[p.id] || 0, list.length - 1), cs = list[i], sl = S.shotlist[p.id] || [], done = sl.filter(s => s.klaar).length;
+    const prov = calProvider();
+    return `<div class="callsheet" data-pid="${p.id}" data-i="${i}">
+      <div class="cs-toolbar">
+        <div class="seg sm cs-days" role="group" aria-label="Opnamedag">${list.map((c, k) => `<button class="${k === i ? 'active' : ''}" data-action="cs-day" data-id="${p.id}" data-i="${k}">Dag ${k + 1}<span class="hide-sm"> · ${c.datum ? fdateShort(c.datum) : '–'}</span></button>`).join('')}<button data-action="cs-add" data-id="${p.id}" title="Opnamedag toevoegen" aria-label="Opnamedag toevoegen">${icon('plus')}</button></div>
+        <div class="row gap wrap cs-actions">${cs.gedeeld ? `<span class="tiny muted">Gedeeld ${esc(cs.gedeeld)}</span>` : ''}<button class="btn sm" data-action="cs-share" data-id="${p.id}">${icon('send')} Delen met crew & klant</button><button class="btn sm" data-action="cs-print">${icon('download')} PDF downloaden</button></div>
+      </div>
+      <section class="card cs-head">
+        <div class="cs-title-row"><span class="doc-type">Callsheet</span><span class="small muted">${esc(p.titel)} · ${esc(p.klant)}</span></div>
+        ${csIn('titel', cs.titel, 'aria-label="Titel opnamedag"', 'cs-title')}
+        <div class="cs-meta">
+          <label class="cs-f">Opnamedatum<input type="date" class="cs-in" data-cs="datum" data-cal-date data-cal-skip="${p.id}" value="${esc(cs.datum)}"><span class="cs-print-only strong">${cs.datum ? `${DAYS[pd(cs.datum).getDay()]} ${fdate(cs.datum)}` : '–'}</span>${calHintHtml(cs.datum, p.id)}</label>
+          <label class="cs-f">Call time<input type="text" inputmode="numeric" maxlength="5" pattern="[0-2]?[0-9]:[0-5][0-9]" placeholder="uu:mm" class="cs-in cs-big" data-cs="calltime" value="${esc(cs.calltime)}"></label>
+          <label class="cs-f">Wrap<input type="text" inputmode="numeric" maxlength="5" pattern="[0-2]?[0-9]:[0-5][0-9]" placeholder="uu:mm" class="cs-in" data-cs="eind" value="${esc(cs.eind)}"></label>
+          <div class="cs-f cs-sync">${prov && S.agenda.autoZet ? `<span class="cal-tag">${icon('calendar')} In je ${esc(CAL[prov].label)}</span>` : `<a class="tiny link" href="#/instellingen/agenda">${icon('calendar')} Agenda koppelen</a>`}</div>
+        </div>
+      </section>
+      <div class="cs-grid">
+        <section class="card">
+          <div class="card-head"><h2>${icon('pin')} Locatie</h2><button class="btn sm ghost cs-noprint" data-action="route">Route</button></div>
+          <label class="cs-f">Naam${csIn('locatie.naam', cs.locatie.naam, 'placeholder="Bijv. Werkplaats"')}</label>
+          <label class="cs-f">Adres${csIn('locatie.adres', cs.locatie.adres, 'placeholder="Straat, plaats"')}</label>
+          <label class="cs-f">Parkeren & laden/lossen<textarea class="cs-in" data-cs="locatie.parkeren" rows="3" placeholder="Waar kan de crew parkeren?">${esc(cs.locatie.parkeren)}</textarea></label>
+        </section>
+        <section class="card">
+          <div class="card-head"><h2>${icon('cloud')} Weer</h2></div>
+          ${weatherHtml(cs)}
+          <div class="card-head mt"><h2>${icon('users')} Contactpersoon klant</h2></div>
+          <div class="cs-contact">
+            <label class="cs-f">Naam${csIn('klant.naam', cs.klant.naam)}</label>
+            <label class="cs-f">Telefoon${csIn('klant.tel', cs.klant.tel, 'type="tel"')}</label>
+            <label class="cs-f full">E-mail${csIn('klant.email', cs.klant.email, 'type="email"')}</label>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-head"><h2>${icon('clock')} Tijdsplanning</h2><button class="btn sm cs-noprint" data-action="cs-add-blok">${icon('plus')} Blok</button></div>
+          <ol class="cs-blocks">${cs.blokken.map((b, k) => `<li><input type="text" inputmode="numeric" maxlength="5" pattern="[0-2]?[0-9]:[0-5][0-9]" placeholder="uu:mm" class="cs-in cs-time" data-cs="blokken.${k}.tijd" value="${esc(b.tijd)}" aria-label="Tijd"><input class="cs-in" data-cs="blokken.${k}.wat" value="${esc(b.wat)}" aria-label="Onderdeel" placeholder="Wat gebeurt er?"><button class="icon-btn cs-noprint" data-action="cs-del" data-list="blokken" data-k="${k}" aria-label="Blok verwijderen">${icon('x')}</button></li>`).join('') || '<li class="muted small">Nog geen blokken.</li>'}</ol>
+        </section>
+        <section class="card">
+          <div class="card-head"><h2>${icon('users')} Crew</h2><button class="btn sm cs-noprint" data-action="cs-add-crew">${icon('plus')} Crewlid</button></div>
+          <ul class="cs-crew">${cs.crew.map((c, k) => `<li>
+            <div class="cs-crew-main">${csIn(`crew.${k}.naam`, c.naam, 'aria-label="Naam" placeholder="Naam"', 'strong')}${csIn(`crew.${k}.rol`, c.rol, 'aria-label="Rol" placeholder="Rol"')}</div>
+            <div class="cs-crew-side"><span class="cs-tel">${icon('phone')}${csIn(`crew.${k}.tel`, c.tel, 'type="tel" aria-label="Telefoon" placeholder="06 …"')}</span>
+            <button class="tag cs-fl ${c.freelancer ? 'on' : ''}" data-action="cs-fl" data-k="${k}" title="Wissel tussen eigen crew en ingehuurde freelancer">${c.freelancer ? 'Freelancer' : 'Eigen'}</button>
+            <button class="icon-btn cs-noprint" data-action="cs-del" data-list="crew" data-k="${k}" aria-label="Crewlid verwijderen">${icon('x')}</button></div></li>`).join('')}</ul>
+          <p class="tiny muted">${cs.crew.filter(c => c.freelancer).length} ingehuurde freelancer(s) · kosten staan bij Financiën.</p>
+        </section>
+        <section class="card">
+          <div class="card-head"><h2>${icon('camera')} Shotlist</h2><span class="small muted">${done}/${sl.length} klaar</span></div>
+          <div class="progress"><div style="width:${sl.length ? done / sl.length * 100 : 0}%"></div></div>
+          <ul class="cs-shots">${sl.map((s, k) => `<li class="${s.klaar ? 'done' : ''}"><label><input type="checkbox" data-action="toggle-shot" data-id="${p.id}" data-i="${k}" ${s.klaar ? 'checked' : ''}><span class="grow">${esc(s.shot)}</span><span class="tag">${esc(s.type)}</span></label></li>`).join('') || '<li class="muted small">Nog geen shots – voeg ze toe bij Shotlist & draaiboek.</li>'}</ul>
+          <a class="tiny link cs-noprint" href="#/project/${p.id}/shotlist">Shotlist bewerken →</a>
+        </section>
+        <section class="card">
+          <div class="card-head"><h2>${icon('file')} Notities</h2></div>
+          <textarea class="cs-in cs-notes" data-cs="notities" rows="5" placeholder="Bijv. dresscode, stroom, back-upplan bij regen…">${esc(cs.notities)}</textarea>
+        </section>
+      </div>
+      <p class="tiny muted cs-noprint">Klik op een veld om het te wijzigen – alles wordt automatisch bewaard (op dit apparaat, demo).</p>
+    </div>`;
+  }
+  function csCur() { const el = $('.callsheet'); if (!el) return null; const l = S.callsheets[el.dataset.pid]; return l ? { pid: el.dataset.pid, i: Number(el.dataset.i), cs: l[Number(el.dataset.i)] } : null; }
+  function setPath(o, path, v) { const k = path.split('.'); let t = o; for (let i = 0; i < k.length - 1; i++) { t = t[k[i]]; if (t == null) return; } t[k[k.length - 1]] = v; }
+  function csShare(pid) {
+    const c = csCur(); if (!c) return; const p = proj(pid), cs = c.cs;
+    const recips = cs.crew.filter(x => x.naam).map(x => ({ naam: x.naam, sub: x.rol + (x.tel ? ' · ' + x.tel : '') })).concat(cs.klant.naam ? [{ naam: cs.klant.naam, sub: 'Klant · ' + (cs.klant.email || cs.klant.tel) }] : []);
+    modal({
+      title: 'Callsheet delen met crew & klant',
+      body: `<p class="small muted">Iedereen met de link ziet altijd de actuele callsheet – ook op de telefoon, zonder account.</p>
+        <div class="copy-field"><input readonly value="https://callsheet.diafragmo.voorbeeld/${esc(pid)}-${esc(cs.datum || 'dag')}-7h2q" aria-label="Link naar callsheet"><button class="btn sm" data-action="copy-link">Kopieer</button></div>
+        <div class="lbl-txt">Versturen naar</div>
+        <ul class="cs-recips">${recips.map((r, k) => `<li><label class="check"><input type="checkbox" checked data-recip="${k}"><span><strong>${esc(r.naam)}</strong><span class="tiny muted"> · ${esc(r.sub)}</span></span></label></li>`).join('')}</ul>
+        <p class="tiny muted">Demo: er wordt niets echt verstuurd.</p>`,
+      actions: [{ label: 'Annuleren', cls: 'ghost', onClick: closeModal }, { label: `${icon('send')} Versturen`, cls: 'primary', onClick: () => {
+        const n = $$('#modal-root [data-recip]').filter(x => x.checked).length; if (!n) { toast('Kies minimaal één ontvanger'); return; }
+        cs.gedeeld = nowLabel(); demoSave(); closeModal(); toast(`Callsheet “${esc(cs.titel)}” gedeeld met ${n} ${n === 1 ? 'persoon' : 'personen'} (demo)`); renderKeep();
+      } }]
+    });
+  }
+
+  // ---------- Agenda-koppeling (Outlook / Google Agenda, gesimuleerd) ----------
+  const CAL = {
+    outlook: { label: 'Outlook-agenda', full: 'Outlook-agenda', sub: 'Microsoft 365, Outlook.com en Exchange', bedrijf: 'Microsoft' },
+    google: { label: 'Google Agenda', full: 'Google Agenda', sub: 'Google Agenda en Google Workspace', bedrijf: 'Google' }
+  };
+  const CAL_LOGO = {
+    outlook: '<svg class="prov-logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="6" width="26" height="23" rx="3" fill="#0a64c8"/><path d="M3 9a3 3 0 0 1 3-3h20a3 3 0 0 1 3 3v3H3z" fill="#28a8ea"/><g fill="#fff"><rect x="7.5" y="15" width="4" height="3.2" rx=".7"/><rect x="14" y="15" width="4" height="3.2" rx=".7"/><rect x="20.5" y="15" width="4" height="3.2" rx=".7"/><rect x="7.5" y="21" width="4" height="3.2" rx=".7"/><rect x="14" y="21" width="4" height="3.2" rx=".7"/></g><rect x="9" y="3" width="2.6" height="6" rx="1.3" fill="#0a3f80"/><rect x="20.4" y="3" width="2.6" height="6" rx="1.3" fill="#0a3f80"/></svg>',
+    google: '<svg class="prov-logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="4" width="24" height="24" rx="4" fill="#fff"/><path d="M8 4h16a4 4 0 0 1 4 4v3H4V8a4 4 0 0 1 4-4z" fill="#4285f4"/><path d="M28 11v13a4 4 0 0 1-4 4h-2V11z" fill="#fbbc04"/><path d="M4 24V11h3v17a4 4 0 0 1-3-4z" fill="#34a853"/><path d="M7 28h15v-3H7z" fill="#34a853"/><text x="15" y="23.5" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5" font-weight="700" fill="#1a73e8">31</text></svg>'
+  };
+  const calProvider = () => S.agenda.outlook.connected ? 'outlook' : S.agenda.google.connected ? 'google' : null;
+  function calBusy(iso, skipPid) {
+    const r = [];
+    if (!iso) return r;
+    D.agendaDemo.forEach(a => { if (a.datum === iso) r.push(a.titel + (a.tijd ? ' (' + a.tijd + ')' : '')); });
+    S.projects.forEach(p => { const pl = S.planning[p.id]; if (!pl || p.id === skipPid) return; pl.draaidagen.forEach(d => { if (d.datum === iso) r.push((d.titel.split(' – ')[0]) + ' – ' + p.klant); }); });
+    return r;
+  }
+  function calHintHtml(iso, skipPid) {
+    const k = calProvider(); if (!k || !S.agenda.checkBeschikbaar) return '<span data-cal-hint hidden></span>';
+    if (!iso) return `<span class="cal-hint" data-cal-hint>${icon('calendar')} Kies een datum om je agenda te checken</span>`;
+    const b = calBusy(iso, skipPid);
+    return `<span class="cal-hint ${b.length ? 'busy' : 'free'}" data-cal-hint title="${esc(b.join(' · '))}"><i></i>Je agenda: <strong>${b.length ? 'bezet' : 'vrij'}</strong> op ${fdateShort(iso)}${b.length ? ' · ' + esc(b[0]) : ''} <em>(demo)</em></span>`;
+  }
+  function calProviderCard(k) {
+    const a = S.agenda[k], pr = CAL[k];
+    return `<div class="provider ${a.connected ? 'connected active' : ''}">
+      <div class="prov-head"><span class="prov-logo-box">${CAL_LOGO[k]}</span><div class="grow"><div class="strong">${esc(pr.full)}</div><div class="small muted">${esc(pr.sub)}</div></div>${a.connected ? '<span class="pill inv-betaald">Gekoppeld</span>' : '<span class="pill">Niet gekoppeld</span>'}</div>
+      ${a.connected ? `<div class="prov-acct"><span class="avatar sm">SV</span><div class="grow"><div class="strong small">${esc(a.adres)}</div><div class="tiny muted">Gekoppeld op ${esc(a.sinds)} · agenda ‘Diafragmo’ aangemaakt</div></div></div>
+        <div class="row-between wrap"><span class="small muted">${icon('check')} Synchroniseert automatisch</span><button class="btn sm ghost" data-action="cal-disconnect" data-k="${k}">Ontkoppelen</button></div>`
+        : `<p class="small muted">Zet je opnamedagen en deadlines in je ${esc(pr.label)} en zie meteen of je vrij bent.</p><button class="btn primary" data-action="cal-connect" data-k="${k}">${icon('link')} Koppelen</button>`}
+    </div>`;
+  }
+  function agendaSettingsHtml() {
+    const k = calProvider(), ag = S.agenda;
+    const opt = (key, title, sub) => `<li class="row-item"><div class="grow"><div class="strong">${title}</div><div class="small muted">${sub}</div></div><label class="switch ${k ? '' : 'off'}"><input type="checkbox" data-action="cal-opt" data-k="${key}" ${ag[key] ? 'checked' : ''} ${k ? '' : 'disabled'} aria-label="${esc(title)}"><span></span></label></li>`;
+    const nxt = weekItems(todayIso(), isoAdd(todayIso(), 30)).filter(x => x.kind !== 'busy').slice(0, 4);
+    return `<section class="card email-settings agenda-settings" id="agenda-settings">
+      <div class="card-head"><div><h2>Agenda</h2><p class="small muted">Koppel Outlook of Google Agenda: opnamedagen en deadlines komen automatisch in je eigen agenda en je ziet bij het plannen of je vrij bent.</p></div>
+        ${k ? `<span class="send-pill">${CAL_LOGO[k]} Gekoppeld met ${esc(CAL[k].label)}</span>` : '<span class="pill inv-open">Nog niet gekoppeld</span>'}</div>
+      <div class="providers">${['outlook', 'google'].map(calProviderCard).join('')}</div>
+      <div class="email-opts cal-opts">
+        <div><h3>Opties</h3><ul class="list">
+          ${opt('autoZet', 'Opnamedagen en deadlines automatisch in je agenda zetten', 'In een aparte agenda ‘Diafragmo’, inclusief locatie en call time')}
+          ${opt('checkBeschikbaar', 'Beschikbaarheid checken bij plannen', 'Toont “vrij / bezet” bij het kiezen van een datum')}
+        </ul>${k ? '' : '<p class="tiny muted">Koppel eerst een agenda om deze opties te gebruiken.</p>'}</div>
+        <div><h3>Komt in je agenda</h3>
+          <ul class="cal-preview">${nxt.map(x => `<li><span class="wk-dot ${x.kind}"></span><span class="grow"><span class="strong small">${esc(x.titel)}</span><span class="tiny muted"> · ${fdateShort(x.datum)}${x.tijd ? ' · ' + esc(x.tijd) : ''}</span></span>${k && ag.autoZet ? `<span class="ok" title="Staat in je agenda">${icon('check')}</span>` : ''}</li>`).join('') || '<li class="muted small">Niets gepland in de komende 30 dagen.</li>'}</ul>
+          <p class="tiny muted">Van je eigen afspraken ziet Diafragmo alleen of je vrij of bezet bent – niet wat erin staat.</p></div>
+      </div>
+    </section>`;
+  }
+  function openCalConsent(k) {
+    const a = S.agenda[k], pr = CAL[k];
+    modal({
+      title: k === 'outlook' ? 'Aanmelden bij Microsoft (demo)' : 'Inloggen met Google (demo)',
+      body: `<div class="consent">
+        <div class="consent-logos"><span class="consent-app"><img src="img/app-icoon.svg" alt="Diafragmo" style="width:52px;height:52px;border-radius:14px;display:block"></span><span class="consent-dots"><i></i><i></i><i></i></span><span class="consent-prov">${CAL_LOGO[k]}</span></div>
+        <div class="consent-acct"><span class="avatar sm">SV</span><div class="grow"><div class="strong small">Sanne de Vries</div><div class="tiny muted">${esc(a.adres)}</div></div><span class="tiny muted">${esc(pr.bedrijf)}-account</span></div>
+        <p class="consent-q"><strong>Diafragmo</strong> wil:</p>
+        <ul class="perm-list">
+          <li>${icon('calendar')}<div><div class="strong">Afspraken maken in een aparte agenda ‘Diafragmo’</div><div class="tiny muted">Opnamedagen (met locatie en call time) en deadlines van je projecten. Wijzigingen worden automatisch bijgewerkt.</div></div></li>
+          <li>${icon('clock')}<div><div class="strong">Zien wanneer je vrij of bezet bent</div><div class="tiny muted">Alleen vrij/bezet, zodat je bij het plannen dubbele boekingen ziet. De inhoud van je afspraken blijft privé.</div></div></li>
+        </ul>
+        <p class="tiny muted">Je kunt deze toegang altijd intrekken in Instellingen of in je ${esc(pr.bedrijf)}-account. Demo: er wordt niet echt ingelogd.</p>
+      </div>`,
+      actions: [{ label: 'Annuleren', cls: 'ghost', onClick: closeModal }, {
+        label: 'Toestaan', cls: 'primary', onClick: () => {
+          const body = $('.modal-body'); if (body) body.innerHTML = `<div class="paying"><div class="spinner blue"></div><p>Verbinden met ${esc(pr.label)}…</p></div>`;
+          $$('.modal-foot .btn').forEach(b => { b.disabled = true; });
+          const tmo = setTimeout(() => {
+            ['outlook', 'google'].forEach(x => { if (x !== k) { S.agenda[x].connected = false; S.agenda[x].sinds = null; } });
+            a.connected = true; a.sinds = nowLabel(); demoSave();
+            const n = weekItems(todayIso(), isoAdd(todayIso(), 60)).filter(x => x.kind !== 'busy').length;
+            closeModal(); toast(`${esc(pr.label)} gekoppeld (demo) · ${n} opnamedagen en deadlines in je agenda gezet`); renderKeep();
+          }, 900);
+          cleanupFns.push(() => clearTimeout(tmo));
+        }
+      }]
+    });
+  }
+  function weekItems(from, to) {
+    const items = [];
+    S.projects.forEach(p => {
+      ensure(p);
+      S.planning[p.id].draaidagen.forEach(d => { if (d.datum >= from && d.datum <= to) items.push({ datum: d.datum, kind: 'shoot', titel: d.titel.split(' – ')[0], sub: p.klant, tijd: d.tijd, href: `#/project/${p.id}/callsheet`, pid: p.id }); });
+      if (p.status !== 'Opgeleverd' && p.deadline >= from && p.deadline <= to) items.push({ datum: p.deadline, kind: 'deadline', titel: 'Deadline ' + p.titel, sub: p.klant, href: `#/project/${p.id}/planning`, pid: p.id });
+    });
+    D.mijlpalen.forEach(m => { const p = proj(m.projectId); if (p && m.datum >= from && m.datum <= to) items.push({ datum: m.datum, kind: 'deadline', titel: m.titel, sub: p.klant, href: `#/project/${p.id}/planning`, pid: p.id }); });
+    if (calProvider()) D.agendaDemo.forEach(a => { if (a.datum >= from && a.datum <= to) items.push({ datum: a.datum, kind: 'busy', titel: 'Bezet', sub: 'uit je agenda', tijd: a.tijd }); });
+    const order = { shoot: 0, deadline: 1, busy: 2 };
+    return items.sort((a, b) => a.datum.localeCompare(b.datum) || order[a.kind] - order[b.kind]);
+  }
+  function weekCardHtml() {
+    const t = todayIso(), end = isoAdd(t, 6), items = weekItems(t, end), k = calProvider();
+    const days = []; for (let i = 0; i < 7; i++) days.push(isoAdd(t, i));
+    const ic = { shoot: 'camera', deadline: 'clock', busy: 'lock' };
+    const synced = k && S.agenda.autoZet;
+    return `<section class="card week-card">
+      <div class="card-head"><h2 class="wk-title">${icon('calendar')} Deze week <span class="small muted">${fdateShort(t)} – ${fdateShort(end)}</span></h2>
+        ${k ? `<span class="send-pill">${CAL_LOGO[k]} <span class="hide-sm">Gesynchroniseerd met </span>${esc(CAL[k].label)}</span>` : `<a class="btn sm" href="#/instellingen/agenda">${icon('calendar')} Koppel je agenda</a>`}</div>
+      <div class="week">${days.map(d => { const its = items.filter(x => x.datum === d); return `<div class="wk-day ${d === t ? 'today' : ''} ${its.length ? '' : 'empty'}">
+        <div class="wk-head"><span>${d === t ? 'vandaag' : DAYS[pd(d).getDay()]}</span><strong>${pd(d).getDate()}</strong><small>${MONTHS[pd(d).getMonth()]}</small></div>
+        <div class="wk-items">${its.map(x => x.href ? `<button class="wk-item ${x.kind}" data-action="go" data-href="${x.href}" title="${esc(x.titel)} · ${esc(x.sub)}"><span class="wk-ic">${icon(ic[x.kind])}</span><span class="wk-txt"><span class="wk-t">${esc(x.titel)}</span><span class="wk-s">${esc(x.sub)}${x.tijd ? ' · ' + esc(x.tijd) : ''}</span></span>${synced ? `<span class="wk-cal" title="Staat in je agenda">${icon('calendar')}</span>` : ''}</button>`
+          : `<div class="wk-item busy"><span class="wk-ic">${icon(ic[x.kind])}</span><span class="wk-txt"><span class="wk-t">${esc(x.titel)}</span><span class="wk-s">${esc(x.sub)}${x.tijd ? ' · ' + esc(x.tijd) : ''}</span></span></div>`).join('') || '<span class="wk-none">–</span>'}</div></div>`; }).join('')}</div>
+      <div class="wk-legend tiny muted"><span><i class="wk-dot shoot"></i>Opnamedag</span><span><i class="wk-dot deadline"></i>Deadline</span>${k ? '<span><i class="wk-dot busy"></i>Bezet in je agenda</span>' : '<span>Koppel je agenda om ook je eigen afspraken als vrij/bezet te zien.</span>'}</div>
+    </section>`;
+  }
+
+  // ---------- Ondertiteling & transcriptie (Pro, verwerkt in de EU) ----------
+  const LANG = { nl: 'Nederlands', en: 'Engels' };
+  function transcriptFor(p, lang) {
+    const t = D.transcripts[p.id] && D.transcripts[p.id][lang];
+    if (t) return JSON.parse(JSON.stringify(t));
+    const v = firstName(p.contact);
+    return lang === 'en' ? [
+      { s: 0.0, e: 2.2, t: `Welcome to ${p.klant}.` }, { s: 2.2, e: 4.6, t: `${v}: “We love what we do, every single day.”` },
+      { s: 4.6, e: 7.0, t: 'Craftsmanship is all in the small details.' }, { s: 7.0, e: 10.0, t: `${p.titel} – made by ${D.studio.naam}.` }
+    ] : [
+      { s: 0.0, e: 2.2, t: `Welkom bij ${p.klant}.` }, { s: 2.2, e: 4.6, t: `${v}: “Wij doen dit werk elke dag met plezier.”` },
+      { s: 4.6, e: 7.0, t: 'Vakmanschap zit in de kleine details.' }, { s: 7.0, e: 10.0, t: `${p.titel} – gemaakt door ${D.studio.naam}.` }
+    ];
+  }
+  const srtTime = s => { const ms = Math.round(s * 1000); return `${String(Math.floor(ms / 3600000)).padStart(2, '0')}:${String(Math.floor(ms / 60000) % 60).padStart(2, '0')}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')},${String(ms % 1000).padStart(3, '0')}`; };
+  const toSrt = segs => segs.map((g, i) => `${i + 1}\r\n${srtTime(g.s)} --> ${srtTime(g.e)}\r\n${String(g.t).trim()}\r\n`).join('\r\n');
+  const segT = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${(s % 60).toFixed(1).padStart(4, '0')}`;
+  function downloadText(name, text, mime) {
+    const blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' }); const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+  function subsPanelHtml(p, v) {
+    const key = p.id + ':' + v, s = S.subs[key], job = S.subsJob && S.subsJob.key === key ? S.subsJob : null;
+    const head = `<div class="subs-head"><h2>${icon('msg')} Ondertitels & transcriptie ${proBadge(!isPro())}</h2><span class="eu-mini">${euBadge('eu-flag')} Verwerkt in de EU</span></div>`;
+    if (!isPro()) return `<section class="subs-panel" id="subs-panel">${head}${lockedHtml('subs')}</section>`;
+    if (job) return `<section class="subs-panel" id="subs-panel">${head}<div class="subs-job"><div class="row-between"><span class="strong small" id="subs-step">${esc(job.step)}</span><span class="small muted mono" id="subs-pct">${Math.round(job.pct)}%</span></div><div class="progress"><div id="subs-bar" style="width:${job.pct}%"></div></div><p class="tiny muted">${LANG[job.lang]} · spraakherkenning op Europese servers – je beelden verlaten de EU niet.</p></div></section>`;
+    if (!s) return `<section class="subs-panel" id="subs-panel">${head}<p class="small muted">Laat automatisch een transcript met tijdcodes maken. Controleer de tekst, bekijk de ondertitels in de speler en download een .srt-bestand of brand ze in voor social media.</p><button class="btn primary" data-action="subs-start" data-id="${p.id}" data-v="${v}">${icon('sparkle')} Ondertitels maken</button></section>`;
+    return `<section class="subs-panel" id="subs-panel">${head}
+      <div class="subs-bar"><div class="row gap wrap"><span class="tag">${LANG[s.lang]}</span><span class="small muted">${s.segs.length} regels · klik op de tekst om te verbeteren</span></div>
+        <label class="check cc-toggle"><input type="checkbox" data-subs-show ${S.subsShow ? 'checked' : ''}> Tonen in speler</label></div>
+      <ol class="subs-list">${s.segs.map((g, i) => `<li class="sub-seg" data-s="${g.s}" data-e="${g.e}"><button class="tc" data-action="seek" data-t="${g.s + 0.05}" title="Spring naar ${segT(g.s)}">${segT(g.s)} → ${segT(g.e)}</button><textarea class="sub-txt" rows="2" data-sub-i="${i}" data-key="${key}" aria-label="Ondertitel ${i + 1}">${esc(g.t)}</textarea></li>`).join('')}</ol>
+      <div class="row gap wrap subs-actions"><button class="btn sm primary" data-action="subs-srt" data-key="${key}">${icon('download')} Download .srt</button><button class="btn sm" data-action="subs-burn" data-key="${key}">${icon('film')} Inbranden voor social (demo)</button><button class="btn sm ghost" data-action="subs-start" data-id="${p.id}" data-v="${v}">Opnieuw / andere taal</button></div>
+    </section>`;
+  }
+  function subOverlay(t) {
+    const el = $('#sub-overlay'); if (!el) return;
+    const s = Player.subKey && S.subs[Player.subKey];
+    const g = s && isPro() && S.subsShow ? s.segs.find(x => t >= x.s && t < x.e) : null;
+    if (g) { if (el.textContent !== g.t) el.textContent = g.t; el.hidden = false; } else el.hidden = true;
+    $$('.sub-seg').forEach(li => li.classList.toggle('now', !!g && Number(li.dataset.s) === g.s));
+  }
+  function subsStartModal(pid, v) {
+    if (!isPro()) { upgradeModal('subs'); return; }
+    const p = proj(pid), key = pid + ':' + v, cur = S.subs[key];
+    modal({
+      title: 'Ondertitels maken',
+      body: `<div class="form-col">
+        <p class="small muted">${esc(p.titel)} · versie ${esc(v)}</p>
+        <div><div class="lbl-txt">Gesproken taal</div><div class="act-chips">${Object.keys(LANG).map(k => `<label class="act-chip"><input type="radio" name="sublang" value="${k}" ${(cur ? cur.lang !== k : k === 'nl') ? 'checked' : ''}><span>${LANG[k]}</span></label>`).join('')}</div></div>
+        <div class="about-eu">${euBadge('eu-flag')}<span><strong>Verwerkt in de EU</strong> – spraakherkenning draait op Europese servers, net als de rest van je soevereine EU-hosting. Je beelden worden niet gebruikt om AI-modellen te trainen.</span></div>
+        ${cur ? '<p class="tiny muted">Let op: het huidige transcript wordt vervangen.</p>' : ''}
+        <p class="tiny muted">Demo: het transcript is fictieve voorbeeldtekst; er wordt niets geüpload.</p></div>`,
+      actions: [{ label: 'Annuleren', cls: 'ghost', onClick: closeModal }, { label: `${icon('sparkle')} Start`, cls: 'primary', onClick: () => {
+        const r = $('#modal-root input[name="sublang"]:checked'); const lang = r ? r.value : 'nl';
+        closeModal(); subsRun(p, v, lang);
+      } }]
+    });
+  }
+  function subsRun(p, v, lang) {
+    const key = p.id + ':' + v;
+    S.subsJob = { key, lang, pct: 0, step: 'Audio uploaden naar EU-server…' }; renderKeep();
+    const iv = setInterval(() => {
+      const j = S.subsJob; if (!j || j.key !== key) { clearInterval(iv); return; }
+      j.pct = Math.min(100, j.pct + 4 + Math.random() * 7);
+      j.step = j.pct < 22 ? 'Audio uploaden naar EU-server…' : j.pct < 72 ? `Spraak herkennen (${LANG[lang]})…` : j.pct < 100 ? 'Tijdcodes uitlijnen en regels opdelen…' : 'Klaar';
+      const b = $('#subs-bar'), pc = $('#subs-pct'), st = $('#subs-step');
+      if (b) b.style.width = j.pct + '%'; if (pc) pc.textContent = Math.round(j.pct) + '%'; if (st) st.textContent = j.step;
+      if (j.pct >= 100) {
+        clearInterval(iv); S.subsJob = null; S.subsShow = true;
+        S.subs[key] = { lang, segs: transcriptFor(p, lang), gemaakt: nowLabel() }; demoSave();
+        toast(`Ondertitels (${LANG[lang]}) klaar – controleer de tekst en speel de video af`); renderKeep();
+      }
+    }, 260);
+    cleanupFns.push(() => { clearInterval(iv); if (S.subsJob && S.subsJob.key === key) S.subsJob = null; });
+  }
+  function subsBurnModal(key) {
+    const s = S.subs[key]; if (!s) return; const [pid, v] = key.split(':'); const p = proj(pid);
+    const g = s.segs[1] || s.segs[0];
+    const fmts = [['9x16', '9:16', 'Reels, TikTok, Shorts'], ['1x1', '1:1', 'Feed-post'], ['16x9', '16:9', 'YouTube, LinkedIn']];
+    modal({
+      title: 'Inbranden voor social (demo)',
+      body: `<div class="form-col">
+        <div class="burn-grid"><div><div class="lbl-txt">Formaat</div><div class="act-chips col">${fmts.map((f, i) => `<label class="act-chip"><input type="radio" name="burnfmt" value="${f[0]}" ${i === 0 ? 'checked' : ''}><span><strong>${f[1]}</strong> <span class="tiny muted">${f[2]}</span></span></label>`).join('')}</div>
+          <div class="lbl-txt mt-s">Stijl</div><div class="act-chips">${['Wit met schaduw', 'Geel', 'Zwarte balk'].map((x, i) => `<label class="act-chip"><input type="radio" name="burnstyle" value="${i}" ${i === 0 ? 'checked' : ''}><span>${x}</span></label>`).join('')}</div></div>
+          <div class="burn-prev-wrap"><div class="burn-prev r9x16 s0" id="burn-prev" style="background:linear-gradient(135deg,${p.grad[0]},${p.grad[1]})"><span class="burn-sub">${esc(g.t)}</span></div></div></div>
+        <div id="burn-progress"></div>
+        <p class="tiny muted">Demo: er wordt geen echt videobestand gemaakt. Verwerkt in de EU.</p></div>`,
+      actions: [{ label: 'Annuleren', cls: 'ghost', onClick: closeModal }, { label: `${icon('film')} Exporteren`, cls: 'primary', onClick: () => {
+        const fmt = ($('#modal-root input[name="burnfmt"]:checked') || {}).value || '9x16';
+        const box = $('#burn-progress'); if (!box || box.dataset.busy) return; box.dataset.busy = '1';
+        $$('.modal-foot .btn').forEach(b => { b.disabled = true; });
+        box.innerHTML = `<div class="small strong">Exporteren met ingebrande ondertitels…</div><div class="progress"><div id="burn-bar" style="width:0%"></div></div>`;
+        let pct = 0; const iv = setInterval(() => {
+          pct += 14; const b = $('#burn-bar'); if (b) b.style.width = Math.min(100, pct) + '%';
+          if (pct >= 100) { clearInterval(iv); closeModal(); toast(`Klaar: ${esc(slug(p.titel))}_${esc(v)}_${fmt}_ondertiteld.mp4 staat bij Bestanden → Exports (demo)`); }
+        }, 200);
+        cleanupFns.push(() => clearInterval(iv));
+      } }]
+    });
+  }
+
   // ---------- Acties ----------
   function newProject(data) {
     const id = 'n' + (Date.now() % 1000000);
@@ -1639,15 +2309,59 @@
     },
     'add-shootday': el => formModal('Draaidag toevoegen', `
         <label>Titel*<input name="titel" required value="Draaidag ${S.planning[el.dataset.id].draaidagen.length + 1}"></label>
-        <div class="form-grid two"><label>Datum*<input type="date" name="datum" required value="2026-10-20"></label><label>Tijd<input name="tijd" value="09:00 – 17:00"></label></div>
+        <div class="form-grid two"><label>Datum*<input type="date" name="datum" required value="2026-10-20" data-cal-date>${calHintHtml('2026-10-20')}</label><label>Tijd<input name="tijd" value="09:00 – 17:00"></label></div>
         <label>Locatie<input name="locatie" placeholder="Adres of plek"></label><label>Crew<input name="crew" value="Sanne"></label>`, 'Toevoegen', d => {
-        const pl = S.planning[el.dataset.id]; pl.draaidagen.push(d); pl.draaidagen.sort((a, b) => a.datum.localeCompare(b.datum)); toast('Draaidag toegevoegd'); render();
+        const pl = S.planning[el.dataset.id]; pl.draaidagen.push(d); pl.draaidagen.sort((a, b) => a.datum.localeCompare(b.datum));
+        if (S.callsheets[el.dataset.id]) { S.callsheets[el.dataset.id].push(csFromDay(proj(el.dataset.id), d)); demoSave(); }
+        const k = calProvider(); toast(`Draaidag toegevoegd${k && S.agenda.autoZet ? ` · ook in je ${esc(CAL[k].label)} gezet (demo)` : ''}`); render();
       }),
     'add-location': el => formModal('Locatie toevoegen', `<label>Naam*<input name="naam" required></label><label>Adres<input name="adres"></label><label>Notitie<textarea name="notitie" rows="3" placeholder="Parkeren, stroom, toegang…"></textarea></label>`, 'Toevoegen', d => { S.planning[el.dataset.id].locaties.push(d); toast('Locatie toegevoegd'); render(); }),
-    'callsheet': () => toast('Callsheet gemaakt en gedeeld met de crew (demo)'),
+    'open-callsheet': el => { const p = proj(el.dataset.id); ensure(p); const l = csList(p); const i = l.findIndex(c => c.datum === el.dataset.datum); S.csSel[p.id] = i < 0 ? 0 : i; go('#/project/' + p.id + '/callsheet'); },
+    'cs-day': el => { S.csSel[el.dataset.id] = Number(el.dataset.i); renderKeep(); },
+    'cs-add': el => {
+      const p = proj(el.dataset.id), l = csList(p), last = l[l.length - 1];
+      const datum = last && last.datum ? isoAdd(last.datum, 1) : isoAdd(todayIso(), 7);
+      const cs = last ? JSON.parse(JSON.stringify(last)) : csFromDay(p, { datum, tijd: '09:00 – 17:00', titel: 'Opnamedag 1', locatie: '' });
+      cs.datum = datum; cs.titel = 'Opnamedag ' + (l.length + 1); cs.gedeeld = null; l.push(cs); S.csSel[p.id] = l.length - 1; demoSave();
+      toast(`Opnamedag ${l.length} toegevoegd (${fdateShort(datum)}) – pas de gegevens aan`); renderKeep();
+    },
+    'cs-add-blok': () => { const c = csCur(); if (!c) return; const b = c.cs.blokken, lt = b.length ? b[b.length - 1].tijd : c.cs.calltime; const m = /^(\d{1,2}):(\d{2})$/.exec(lt || ''); const nt = m ? `${String(Math.min(23, Number(m[1]) + 1)).padStart(2, '0')}:${m[2]}` : '12:00'; b.push({ tijd: nt, wat: '' }); demoSave(); renderKeep(); const ins = $$('.cs-blocks input[data-cs$=".wat"]'); if (ins.length) ins[ins.length - 1].focus(); },
+    'cs-add-crew': () => { const c = csCur(); if (!c) return; c.cs.crew.push({ naam: '', rol: '', tel: '', freelancer: true }); demoSave(); renderKeep(); const ins = $$('.cs-crew input[data-cs$=".naam"]'); if (ins.length) ins[ins.length - 1].focus(); },
+    'cs-del': el => { const c = csCur(); if (!c) return; c.cs[el.dataset.list].splice(Number(el.dataset.k), 1); demoSave(); renderKeep(); },
+    'cs-fl': el => { const c = csCur(); if (!c) return; const m = c.cs.crew[Number(el.dataset.k)]; m.freelancer = !m.freelancer; demoSave(); renderKeep(); },
+    'cs-share': el => csShare(el.dataset.id),
+    'cs-print': () => {
+      // Invoervelden tijdelijk als gewone tekst tonen, zodat lange regels in de PDF netjes afbreken
+      $$('.callsheet .cs-static').forEach(x => x.remove());
+      $$('.callsheet .cs-in:not([type="date"])').forEach(inp => { const sp = document.createElement('span'); sp.className = 'cs-static' + (inp.classList.contains('cs-big') ? ' cs-big' : '') + (inp.classList.contains('cs-title') ? ' cs-title' : ''); sp.textContent = inp.value.trim() || '–'; inp.after(sp); });
+      document.body.classList.add('print-cs');
+      const done = () => { document.body.classList.remove('print-cs'); $$('.callsheet .cs-static').forEach(x => x.remove()); window.removeEventListener('afterprint', done); };
+      window.addEventListener('afterprint', done);
+      toast('Kies “Opslaan als PDF” in het printvenster');
+      setTimeout(() => { try { window.print(); } catch (e) { /* noop */ } }, 60);
+    },
+    // Offerte ondertekenen
+    'sign-open': () => { S.signOpen = true; const p = proj(route().a); const box = $('#sign-panel'); if (!box || !p) return; box.innerHTML = signPanelHtml(p, S.quotes[p.id]); initSigPad(); box.scrollIntoView({ behavior: 'smooth', block: 'start' }); const n = $('#sign-name'); if (n) setTimeout(() => n.focus({ preventScroll: true }), 300); },
+    'sig-clear': () => { if (S.sigClear) S.sigClear(); },
+    'sign-copy': el => copyText(signLink(el.dataset.id), `Link voor ondertekening van ${esc(S.quotes[el.dataset.id].nr)} gekopieerd – stuur hem naar ${esc(S.quotes[el.dataset.id].tav || proj(el.dataset.id).contact)}`),
+    'quote-view': el => { const p = proj(el.dataset.id), q = S.quotes[p.id]; modal({ title: `Offerte ${q.nr}`, wide: true, body: `${signStatusHtml(q)}<div class="doc-preview pq-doc in-modal">${quoteDocHtml(p, q)}</div>`, actions: [{ label: 'Sluiten', cls: 'ghost', onClick: closeModal }].concat(q.signed ? [] : [{ label: `${icon('link')} Link voor ondertekening kopiëren`, cls: 'primary', onClick: () => copyText(signLink(p.id), 'Link voor ondertekening gekopieerd') }]) }); },
+    'sign-reset': el => { unsign(el.dataset.id); demoSave(); toast('Demo: handtekening verwijderd – de offerte wacht weer op ondertekening'); renderKeep(); },
+    // Agenda
+    'cal-connect': el => openCalConsent(el.dataset.k),
+    'cal-disconnect': el => { const a = S.agenda[el.dataset.k]; a.connected = false; a.sinds = null; demoSave(); toast(`${esc(CAL[el.dataset.k].label)} ontkoppeld (demo)`); renderKeep(); },
+    'cal-opt': el => { S.agenda[el.dataset.k] = el.checked; demoSave(); toast(`${el.dataset.k === 'autoZet' ? 'Automatisch in je agenda zetten' : 'Beschikbaarheid checken'} ${el.checked ? 'aan' : 'uit'}`); renderKeep(); },
+    // Pro
+    'upgrade': el => upgradeModal(el.dataset.f),
+    'plan-demo': el => { if (S.settings.plan !== el.dataset.plan) setPlan(el.dataset.plan, 'demo'); },
+    'timer-start': el => timerStart(el.dataset.id),
+    'timer-stop': () => timerStopModal(),
+    'hours-edit': el => timerEditModal(el.dataset.id, el.dataset.tid),
+    'subs-start': el => subsStartModal(el.dataset.id, el.dataset.v),
+    'subs-srt': el => { const s = S.subs[el.dataset.key]; if (!s) return; const [pid, v] = el.dataset.key.split(':'); const name = `${slug(proj(pid).titel).replace(/^-|-$/g, '')}_${v}_${s.lang}.srt`; downloadText(name, toSrt(s.segs), 'application/x-subrip;charset=utf-8'); toast(`${esc(name)} gedownload (${s.segs.length} ondertitels)`); },
+    'subs-burn': el => subsBurnModal(el.dataset.key),
     'route': () => toast('Route wordt geopend in je kaarten-app (demo)'),
     'print-draaiboek': () => toast('Draaiboek gedeeld met de crew (demo)'),
-    'toggle-shot': el => { S.shotlist[el.dataset.id][Number(el.dataset.i)].klaar = el.checked; render(); },
+    'toggle-shot': el => { S.shotlist[el.dataset.id][Number(el.dataset.i)].klaar = el.checked; demoSave(); renderKeep(); },
     'upload-file': el => {
       const box = $('#upload-progress'); if (!box || box.dataset.busy) return;
       box.dataset.busy = '1';
@@ -1662,12 +2376,6 @@
     'share-folder': () => toast('Map “Exports” gedeeld via het klantportaal (demo)'),
     'download': el => toast(`Download “${esc(el.dataset.name)}” gestart (demo – geen echt bestand)`),
     'copy-link': el => { const inp = el.previousElementSibling; if (inp && inp.select) inp.select(); toast('Link gekopieerd (demo)'); },
-    'timer': el => {
-      if (!S.timer) { S.timer = { start: Date.now(), id: el.dataset.id }; toast('Timer gestart'); render(); return; }
-      const secs = (Date.now() - S.timer.start) / 1000; const uren = Math.max(0.25, Math.ceil(secs / 900) * 0.25);
-      (S.hours[S.timer.id] = S.hours[S.timer.id] || []).push({ datum: '2026-10-01', activiteit: 'Getimed werk', uren, km: 0 });
-      addedHours += uren; S.timer = null; toast(`${num(uren, 2)} uur geregistreerd (afgerond op kwartieren)`); render();
-    },
     'add-freelancer': el => formModal('Freelancer toevoegen', `
         <label>Naam*<input name="naam" required placeholder="Naam freelancer"></label>
         <label>Rol<select name="rol"><option>Tweede camera</option><option>Drone-piloot</option><option>Geluid</option><option>Editor</option><option>Gaffer / licht</option><option>Visagie</option></select></label>
@@ -1740,13 +2448,17 @@
     'play-reel': el => { const p = proj(el.dataset.id); modal({ title: p.titel, wide: true, body: `<div class="player"><video controls autoplay muted playsinline>${D.videos.v3.map(s => `<source src="${s}" type="video/mp4">`).join('')}</video></div><p class="small muted">${esc(p.klant)} · voorbeeldbeelden</p>`, actions: [{ label: 'Sluiten', cls: 'primary', onClick: closeModal }] }); },
     'reset-form': () => { S.showreelSent = null; render(); setTimeout(() => { const f = document.getElementById('site-form'); if (f) f.scrollIntoView(); }, 50); },
     // Instellingen
-    'set-plan': el => { S.settings.plan = el.dataset.plan; toast(`Plan gewijzigd naar ${esc(el.dataset.plan)} (demo – er wordt niets afgeschreven)`); render(); },
+    'set-plan': el => setPlan(el.dataset.plan),
     'toggle-int': el => { S.settings.koppelingen[el.dataset.k] = el.checked; toast(`Koppeling met ${esc(el.dataset.k)} ${el.checked ? 'ingeschakeld' : 'uitgeschakeld'} (demo)`); render(); },
     'save-settings': () => toast('Instellingen opgeslagen (demo)')
   };
 
   // Formulieren
   const F = {
+    'sign-quote': (f, d) => {
+      updateSignBtn(); const b = $('#sign-submit'); if (!b || b.disabled) { toast('Vul je naam in, zet je handtekening en vink de voorwaarden aan'); return; }
+      const c = $('#sig-canvas'); signQuote(f.dataset.id, d.naam.trim(), c.toDataURL('image/png'));
+    },
     'add-shot': (f, d) => { const sl = S.shotlist[f.dataset.id]; sl.push({ scene: String(sl.length + 1), shot: d.shot, type: d.type, lens: '–', locatie: '–', klaar: false }); toast('Shot toegevoegd'); render(); },
     'add-hours': (f, d) => { const u = Number(d.uren) || 0; S.hours[f.dataset.id].push({ datum: d.datum, activiteit: d.activiteit, uren: u, km: Number(d.km) || 0 }); addedHours += u; toast(`${num(u, 2)} uur toegevoegd – urencriterium nu ${num(urenTotaal(), 2)} / ${num(S.urenDoel, 0)}`); render(); },
     'add-comment': (f, d) => {
@@ -1807,6 +2519,12 @@
     const el = e.target;
     if (el.matches('input[data-action]')) { const fn = A[el.dataset.action]; if (fn) fn(el, e); return; }
     if (el.matches('[data-action-change="review-project"]')) { go('#/review/' + el.value); return; }
+    if (el.matches('[data-cal-date]')) { const h = el.parentElement.querySelector('[data-cal-hint]'); if (h) h.outerHTML = calHintHtml(el.value, el.dataset.calSkip); }
+    if (el.closest && el.closest('#sign-form')) { updateSignBtn(); return; }
+    if (el.matches('[data-subs-show]')) { S.subsShow = el.checked; const vid = $('#vid'); subOverlay(Player.mode === 'video' && vid ? vid.currentTime : Player.t); return; }
+    if (el.name === 'burnfmt') { const b = $('#burn-prev'); if (b) b.className = b.className.replace(/r\w+x\w+/, 'r' + el.value); return; }
+    if (el.name === 'burnstyle') { const b = $('#burn-prev'); if (b) b.className = b.className.replace(/\bs\d\b/, 's' + el.value); return; }
+    if (el.matches('[data-cs="datum"]')) { const c = csCur(); if (c) { c.cs.datum = el.value; demoSave(); renderKeep(); } return; }
     if (el.matches('[data-q]')) { S.quote[el.dataset.q] = el.type === 'checkbox' ? el.checked : el.value; renderQuoteLive(); return; }
     if (el.id === 'tk-file') { const fl = el.files && el.files[0]; if (fl) { S.tkAtt = { naam: fl.name, grootte: mb(fl) }; const b = $('#tk-att'); if (b) b.innerHTML = tkAttHtml(); } return; }
     if (el.matches('[data-tk-set]')) {
@@ -1830,6 +2548,9 @@
     if (el.matches('[data-sr]') && el.type !== 'checkbox') { S.showreel[el.dataset.sr] = el.value; refreshReelPreview(); return; }
     if (el.matches('[data-tpl-f]')) { S.email.templates[S.email.tplSel][el.dataset.tplF] = el.value; return; }
     if (el.matches('[data-email-sig]')) { S.email.sig = el.value; return; }
+    if (el.matches('[data-cs]') && el.dataset.cs !== 'datum') { const c = csCur(); if (c) { setPath(c.cs, el.dataset.cs, el.value); demoSave(); } return; }
+    if (el.matches('[data-sub-i]')) { const s = S.subs[el.dataset.key]; if (s) { s.segs[Number(el.dataset.subI)].t = el.value; demoSave(); const vid = $('#vid'); subOverlay(Player.mode === 'video' && vid ? vid.currentTime : Player.t); } return; }
+    if (el.closest && el.closest('#sign-form')) { updateSignBtn(); return; }
     if (el.id === 'proj-search') { S.search = el.value; const pos = el.selectionStart; render(); const n = $('#proj-search'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (er) { /* noop */ } } }
   });
   document.addEventListener('submit', e => {
@@ -1840,10 +2561,17 @@
   let lastTplField = null;
   document.addEventListener('focusin', e => { if (e.target.matches && e.target.matches('[data-tpl-f]')) lastTplField = e.target; });
   window.addEventListener('hashchange', render);
+  // Wijzigingen uit een ander tabblad (bijv. klant ondertekent via de gekopieerde link)
+  window.addEventListener('storage', e => {
+    if (e.key !== DEMO_KEY) return;
+    applyDemo(demoLoad(), true);
+    if ($('#modal-root').classList.contains('open') || (document.activeElement && document.activeElement.matches('input, textarea, select'))) renderTimerPill(); else renderKeep();
+  });
   function boot() {
     $$('[data-ic]').forEach(el => { el.insertAdjacentHTML('afterbegin', icon(el.dataset.ic)); });
     applyTheme(false);
     tickets(); updateInfoBadges();
+    applyDemo(demoLoad(), false);
     if (!location.hash) history.replaceState(null, '', '#/dashboard');
     render();
   }

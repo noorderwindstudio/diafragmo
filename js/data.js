@@ -142,6 +142,122 @@ window.FRAME_DATA = (function () {
   };
 
 
+  // ---------- 0.4.0: offerte ondertekenen, callsheets, agenda, ondertiteling ----------
+  // Offerte die nog op een digitale handtekening wacht (Trouwfilm Lisa & Tom)
+  finance.p5 = {
+    offerte: { nr: 'O2026-021', bedrag: 2450, status: 'Verstuurd', datum: '28 sep' },
+    aanbetaling: { nr: '–', bedrag: 889.35, status: 'Nog niet verstuurd', datum: '–' },
+    eindfactuur: { nr: '–', bedrag: 2075.15, status: 'Na oplevering', datum: '–' },
+    freelancers: [], overig: []
+  };
+  const quotes = {
+    p5: {
+      nr: 'O2026-021', datum: '2026-09-28', geldig: '2026-10-28', verstuurd: '2026-09-28', status: 'Verstuurd', aanbetalingPct: 30,
+      aan: 'Lisa Bakker & Tom Visser', tav: 'Lisa Bakker',
+      intro: 'Wat leuk dat ik jullie trouwdag mag vastleggen! Hieronder vinden jullie de offerte voor een trouwfilm van de hele dag, met drone-opnames bij de ceremonie en een korte teaser voor social media.',
+      lines: [
+        { omschrijving: 'Trouwfilm hele dag (10 uur, 2 camera’s), van voorbereiding tot openingsdans', aantal: 1, eenheid: 'dag', prijs: 1450 },
+        { omschrijving: 'Drone-opnames ceremonie en fotoshoot (gecertificeerde piloot)', aantal: 1, eenheid: 'stuk', prijs: 295 },
+        { omschrijving: 'Montage trouwfilm (15–20 min) + teaser van 1 minuut', aantal: 1, eenheid: 'stuk', prijs: 595 },
+        { omschrijving: 'Online galerij + houten USB-box', aantal: 1, eenheid: 'stuk', prijs: 110 }
+      ],
+      voorwaarden: 'Bij akkoord ontvangen jullie een aanbetalingsfactuur van 30%. Het restant volgt na oplevering. Verzetten van de datum kan kosteloos tot 3 maanden vooraf. Op deze offerte zijn de algemene voorwaarden van Sanne de Vries Video van toepassing (voorbeeld).'
+    }
+  };
+
+  // Extra planning: festival (vandaag/morgen), pick-ups en de productvideo-draaidag
+  planning.p2 = {
+    draaidagen: [
+      { datum: '2026-09-15', tijd: '08:30 – 17:00', titel: 'Draaidag 1 – Collega’s aan het werk', locatie: 'Stadskantoor (fictief adres), Zwolle', crew: 'Sanne, Femke (geluid)' },
+      { datum: '2026-10-06', tijd: '13:00 – 16:00', titel: 'Pick-ups & Engelse voice-over', locatie: 'Stadskantoor (fictief adres), Zwolle', crew: 'Sanne' }
+    ],
+    locaties: [{ naam: 'Stadskantoor', adres: 'Voorbeeldplein 1, Zwolle (fictief)', notitie: 'Aanmelden bij de receptie, badge ophalen.' }]
+  };
+  planning.p3 = {
+    draaidagen: [
+      { datum: '2026-10-03', tijd: '12:00 – 01:00', titel: 'Festivaldag 1 – opbouw, publiek & hoofdpodium', locatie: 'Festivalterrein Weide & Wind (fictief), Dalfsen', crew: 'Sanne, Mark (2e camera), Joris (drone)' },
+      { datum: '2026-10-04', tijd: '12:00 – 23:00', titel: 'Festivaldag 2 – sfeer, interviews & afsluiter', locatie: 'Festivalterrein Weide & Wind (fictief), Dalfsen', crew: 'Sanne, Mark (2e camera)' }
+    ],
+    locaties: [{ naam: 'Festivalterrein', adres: 'Weide & Wind, Dalfsen (fictief)', notitie: 'Crewparkeren P3, polsbandje bij de productie-unit.' }]
+  };
+  planning.p4 = {
+    draaidagen: [
+      { datum: '2026-10-15', tijd: '07:30 – 16:30', titel: 'Draaidag – productvideo’s najaarscollectie', locatie: 'Fietsatelier Hanze, Voorbeeldkade 8, Zwolle (fictief)', crew: 'Sanne, Mark (2e camera), Lotte (styling)' }
+    ],
+    locaties: [
+      { naam: 'Werkplaats & showroom', adres: 'Voorbeeldkade 8, Zwolle (fictief)', notitie: 'Roldeur aan de achterkant voor laden/lossen.' },
+      { naam: 'Rijshots aan de IJssel', adres: 'Fietspad langs de IJssel (fictief)', notitie: 'Rustig tussen 10:00 en 12:00.' }
+    ]
+  };
+  shotlist.p4 = [
+    { scene: '1', shot: 'Hero: nieuwe stadsfiets op draaiplateau, zachte zijlichtbak', type: 'Medium', lens: '50mm', locatie: 'Showroom', klaar: false },
+    { scene: '1', shot: 'Details: lak, leren zadel, logo op het balhoofd', type: 'Close-up', lens: '100mm macro', locatie: 'Showroom', klaar: false },
+    { scene: '2', shot: 'Roos stelt een fiets af in de werkplaats', type: 'Medium', lens: '35mm', locatie: 'Werkplaats', klaar: false },
+    { scene: '3', shot: 'Rijshot langs de IJssel, gimbal vanaf bakfiets', type: 'Wide', lens: '24mm', locatie: 'Buiten', klaar: false },
+    { scene: '3', shot: 'Drone: fietser over de dijk in herfstlicht', type: 'Aerial', lens: 'Drone 24mm', locatie: 'Buiten', klaar: false },
+    { scene: '4', shot: 'Social 9:16: unboxing van een bestelling', type: 'Insert', lens: '35mm', locatie: 'Showroom', klaar: false }
+  ];
+
+  // Callsheet (draaiboek per opnamedag) – volledig uitgewerkt voor de productvideo’s
+  const callsheets = {
+    p4: [{
+      titel: 'Draaidag – productvideo’s najaarscollectie', datum: '2026-10-15', calltime: '07:30', eind: '16:30',
+      locatie: { naam: 'Fietsatelier Hanze', adres: 'Voorbeeldkade 8, 8000 AA Zwolle (fictief adres)', parkeren: 'Twee plekken op eigen terrein achter de werkplaats. Laden en lossen via de roldeur. Overige crew: parkeergarage Voorbeeldpoort (5 min lopen).' },
+      blokken: [
+        { tijd: '07:30', wat: 'Call time crew · koffie & korte briefing' },
+        { tijd: '08:00', wat: 'Opbouw licht in showroom (draaiplateau + lichtbak)' },
+        { tijd: '08:45', wat: 'Scene 1 – hero- en detailshots stadsfiets' },
+        { tijd: '10:15', wat: 'Scene 3 – rijshots en drone langs de IJssel' },
+        { tijd: '12:15', wat: 'Lunch (verzorgd door Fietsatelier Hanze)' },
+        { tijd: '13:00', wat: 'Scene 2 – Roos in de werkplaats' },
+        { tijd: '14:30', wat: 'Scene 4 – social 9:16 en unboxing' },
+        { tijd: '15:45', wat: 'Back-up kaarten, afbouw, wrap 16:30' }
+      ],
+      crew: [
+        { naam: 'Sanne de Vries', rol: 'Regie & camera', tel: '06 0000 0001', freelancer: false },
+        { naam: 'Mark Jansen (fictief)', rol: 'Tweede camera & gimbal', tel: '06 0000 0012', freelancer: true },
+        { naam: 'Joris Kok – Aerial Noord (fictief)', rol: 'Drone-piloot (10:15 – 12:00)', tel: '06 0000 0034', freelancer: true },
+        { naam: 'Lotte Visser (fictief)', rol: 'Styling & props', tel: '06 0000 0056', freelancer: true }
+      ],
+      klant: { naam: 'Roos Mulder', rol: 'Eigenaar Fietsatelier Hanze', tel: '06 0000 0078', email: 'roos@fietsatelierhanze.voorbeeld.nl' },
+      notities: 'Showroom is open vanaf 10:00: tot die tijd geen klanten in beeld. Roos regelt drie fietsen uit de nieuwe collectie (maat M). Bij regen schuiven de rijshots naar 14:30 en draaien we eerst de werkplaats.'
+    }]
+  };
+
+  // Mijlpalen/deadlines binnen projecten (voor "Deze week" en je agenda)
+  const mijlpalen = [
+    { projectId: 'p1', datum: '2026-10-07', titel: 'Versie 4 naar klant (logo langer in beeld)' },
+    { projectId: 'p2', datum: '2026-10-09', titel: 'Versie 2 opleveren, incl. Engelse ondertitels' },
+    { projectId: 'p4', datum: '2026-10-12', titel: 'Shotlist en callsheet akkoord met klant' }
+  ];
+  // Fictieve afspraken uit je eigen agenda (alleen zichtbaar na koppelen, demo)
+  const agendaDemo = [
+    { datum: '2026-10-05', tijd: '09:00 – 12:00', titel: 'Bezet (uit je agenda)' },
+    { datum: '2026-10-08', tijd: 'hele dag', titel: 'Bezet (uit je agenda)' },
+    { datum: '2026-10-13', tijd: '13:00 – 17:00', titel: 'Bezet (uit je agenda)' },
+    { datum: '2026-10-21', tijd: 'hele dag', titel: 'Bezet (uit je agenda)' }
+  ];
+
+  // Demo-transcript (fictieve voice-over) voor ondertiteling – past op de testclips van 10 seconden
+  const transcripts = {
+    p1: {
+      nl: [
+        { s: 0.0, e: 2.0, t: 'In 1951 begon opa Van Dam met één oven.' },
+        { s: 2.0, e: 4.2, t: 'Vijfenzeventig jaar later staan we hier nog elke ochtend om vier uur.' },
+        { s: 4.2, e: 6.3, t: 'Het recept is nooit veranderd: tijd, liefde en goed meel.' },
+        { s: 6.3, e: 8.3, t: 'Dat proef je in elk brood dat over de toonbank gaat.' },
+        { s: 8.3, e: 10.0, t: 'Bakkerij Van Dam. Al 75 jaar vers uit Zwolle.' }
+      ],
+      en: [
+        { s: 0.0, e: 2.0, t: 'In 1951, Grandpa Van Dam started out with a single oven.' },
+        { s: 2.0, e: 4.2, t: 'Seventy-five years later, we’re still here at four every morning.' },
+        { s: 4.2, e: 6.3, t: 'The recipe never changed: time, love and good flour.' },
+        { s: 6.3, e: 8.3, t: 'You can taste it in every loaf that crosses the counter.' },
+        { s: 8.3, e: 10.0, t: 'Bakkerij Van Dam. Freshly baked in Zwolle for 75 years.' }
+      ]
+    }
+  };
+
   // Fictieve e-mailadressen van klanten (domein .voorbeeld.nl bestaat niet echt)
   const clientEmails = {
     p1: ['ingrid@bakkerijvandam.voorbeeld.nl', 'kees@bakkerijvandam.voorbeeld.nl'],
@@ -183,5 +299,5 @@ window.FRAME_DATA = (function () {
     ]
   };
 
-  return { STATUSES, clientEmails, emails, studio, projects, invoices, feedbackWaiting, videos, comments, hours, planning, shotlist, draaiboek, files, finance };
+  return { STATUSES, clientEmails, emails, studio, projects, invoices, feedbackWaiting, videos, comments, hours, planning, shotlist, draaiboek, files, finance, quotes, callsheets, mijlpalen, agendaDemo, transcripts };
 })();
