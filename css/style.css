@@ -654,4 +654,4 @@ button.att-chip:hover { border-color: #cfccc5; }
 .grid-2 > *, .email-opts > *, .providers > * { min-width: 0; }
 .builder > *, .grid-dash > *, .reel-grid > * { min-width: 0; }
 
-.logo-img { height: 28px; width: auto; display: block; }
+.logo .logo-img, .sidebar .logo-img, img.logo-img { height: 28px !important; width: 28px !important; max-width: 28px !important; flex: 0 0 28px; display: block; }
