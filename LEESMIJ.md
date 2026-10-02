@@ -7,11 +7,14 @@ Dubbelklik op `index.html` (werkt direct vanaf schijf) of start `python3 -m http
 
 ## Schermen (hash-routes)
 - `#/dashboard`: lopende projecten, pijplijn, openstaande facturen, feedback die op je wacht, urencriterium
-- `#/projecten` en `#/project/p1/planning|shotlist|bestanden|feedback|uren|financien`
+- `#/projecten` en `#/project/p1/planning|shotlist|bestanden|feedback|email|uren|financien`
 - `#/review/p1/v3`: videospeler, opmerkingen op timecode, wisselen tussen v1/v2/v3, goedkeuren
 - `#/klant/p1`: klantportaal (iDEAL-demo → `#/klant/p1/betaald`)
 - `#/financien`: offerte- en factuurbouwer met live totalen
 - `#/showreel` en `#/showreel/live`: showreel-editor en publieke pagina met aanvraagformulier
-- `#/instellingen`: abonnement (Basis €24 / Pro €39) en boekhoudkoppelingen
+- `#/instellingen`: abonnement (Basis €24 / Pro €39), boekhoudkoppelingen en e-mail (`#/instellingen/email`)
+
+## E-mail (gesimuleerd)
+Koppel Microsoft 365 / Outlook of Gmail via een nagebootst toestemmingsscherm. Eén account is het actieve verzendaccount; handtekening, BCC naar mezelf en sjablonen (Offerte, Factuur, Herinnering, Oplevering met `{klant}`, `{voornaam}`, `{project}`, `{portaallink}`, `{documentnr}`, `{bedrag}`, `{vervaldatum}`) zijn instelbaar. Verstuur offerte, factuur Versturen, Herinner en Antwoord openen een opstelvenster; verzonden mail verschijnt in het tabblad E-mail van het project. Zonder koppeling wordt verzonden via Diafragmo (noreply). Er wordt nooit echt ingelogd of gemaild; adressen op `.voorbeeld` zijn fictief.
 
 Voorbeeldvideo's: open-source testclips van test-videos.co.uk (Big Buck Bunny, Jellyfish, Sintel), met MDN "flower.mp4" als reserve. Zonder internet verschijnt een gesimuleerde speler.

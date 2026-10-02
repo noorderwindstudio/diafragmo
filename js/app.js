@@ -33,8 +33,21 @@
     showreelSent: null,
     portal: { uploads: [{ naam: 'Logo_VanDam_2026.svg', grootte: '48 KB', klaar: true }, { naam: "Archieffoto's_1951.zip", grootte: '312 MB', klaar: true }], comments: [], paidIds: {} },
     settings: { plan: 'Pro', koppelingen: { Moneybird: true, 'e-Boekhouden': false, Jortt: false } },
+    email: {
+      accounts: { outlook: { adres: 'sanne@sannedevriesvideo.nl', connected: false, sinds: null }, gmail: { adres: 'sannedevriesvideo@gmail.com', connected: false, sinds: null } },
+      active: null, sigOn: true, bcc: false, autoKoppel: true, tplSel: 'offerte', filter: 'Alle',
+      sig: 'Sanne de Vries\nSanne de Vries Video · videoproductie in Zwolle\nsannedevries.nl',
+      templates: null, threads: JSON.parse(JSON.stringify(D.emails))
+    },
     timer: null
   };
+  const DEFAULT_TPL = {
+    offerte: { naam: 'Offerte', onderwerp: 'Offerte {documentnr} – {project}', body: 'Hoi {voornaam},\n\nBedankt voor het fijne gesprek! In de bijlage vind je de offerte voor “{project}” ({bedrag} incl. btw).\n\nIn je persoonlijke klantportaal bekijk je de offerte en geef je met één klik akkoord:\n{portaallink}\n\nVragen of iets aanpassen? Laat het gerust weten.\n\nHartelijke groet,\nSanne' },
+    factuur: { naam: 'Factuur', onderwerp: 'Factuur {documentnr} – {project}', body: 'Hoi {voornaam},\n\nIn de bijlage vind je factuur {documentnr} voor “{project}” van {bedrag} (incl. btw), te voldoen vóór {vervaldatum}.\n\nBetalen kan direct met iDEAL via je klantportaal:\n{portaallink}\n\nBedankt voor de fijne samenwerking!\n\nHartelijke groet,\nSanne' },
+    herinnering: { naam: 'Herinnering', onderwerp: 'Herinnering: factuur {documentnr} – {project}', body: 'Hoi {voornaam},\n\nEen vriendelijke herinnering: factuur {documentnr} van {bedrag} voor “{project}” staat nog open (vervaldatum {vervaldatum}).\n\nBetalen kan snel met iDEAL via je klantportaal:\n{portaallink}\n\nIs de betaling al onderweg? Dan kun je deze mail negeren.\n\nHartelijke groet,\nSanne' },
+    oplevering: { naam: 'Oplevering', onderwerp: 'Je video is klaar: {project}', body: 'Hoi {voornaam},\n\nDe definitieve versie van “{project}” staat klaar! Je downloadt de video in 4K, de social-versie en de ondertitels via je klantportaal:\n{portaallink}\n\nDe downloadlink blijft 12 maanden geldig. Bedankt voor het vertrouwen, {klant}!\n\nHartelijke groet,\nSanne' }
+  };
+  S.email.templates = JSON.parse(JSON.stringify(DEFAULT_TPL));
   let addedHours = 0;
   let cleanupFns = [];
 
@@ -149,6 +162,7 @@
         v3: [{ t: 8.0, van: 'Sanne de Vries', rol: 'maker', tekst: 'Laatste aanpassingen verwerkt.', opgelost: done }]
       };
     }
+    if (!S.email.threads[id]) S.email.threads[id] = seedThread(p);
   }
   const projectHours = id => (S.hours[id] || []).reduce((a, h) => a + Number(h.uren || 0), 0);
   const projectKm = id => (S.hours[id] || []).reduce((a, h) => a + Number(h.km || 0), 0);
@@ -229,7 +243,7 @@
         const p = proj(r.a || 'p1') || proj('p1'); ensure(p); external = true;
         html = r.b === 'betaald' ? viewPaid(p) : viewPortal(p); mount = () => mountPortal(p); break;
       }
-      case 'instellingen': html = viewSettings(); break;
+      case 'instellingen': html = viewSettings(); if (r.a === 'email') mount = () => { const el = $('#email-settings'); if (el) el.scrollIntoView(); }; break;
       default: html = viewNotFound();
     }
     document.body.classList.toggle('external-mode', external);
@@ -350,10 +364,11 @@
   }
 
   // ---------- Projectpagina ----------
-  const TABS = [['planning', 'Planning'], ['shotlist', 'Shotlist & draaiboek'], ['bestanden', 'Bestanden'], ['feedback', 'Feedback'], ['uren', 'Uren & km'], ['financien', 'Financiën']];
+  const TABS = [['planning', 'Planning'], ['shotlist', 'Shotlist & draaiboek'], ['bestanden', 'Bestanden'], ['feedback', 'Feedback'], ['email', 'E-mail'], ['uren', 'Uren & km'], ['financien', 'Financiën']];
   function viewProject(p, tab) {
     if (!TABS.find(t => t[0] === tab)) tab = 'planning';
-    const body = { planning: tabPlanning, shotlist: tabShotlist, bestanden: tabFiles, feedback: tabFeedback, uren: tabHours, financien: tabFinance }[tab](p);
+    const body = { planning: tabPlanning, shotlist: tabShotlist, bestanden: tabFiles, feedback: tabFeedback, email: tabEmail, uren: tabHours, financien: tabFinance }[tab](p);
+    const unread = (S.email.threads[p.id] || []).filter(m => m.nieuw).length;
     const si = STATUSES.indexOf(p.status);
     return `
       <a class="back" href="#/projecten">${icon('arrowLeft')} Projecten</a>
@@ -371,7 +386,7 @@
           <button class="btn ghost" data-action="quote-for" data-id="${p.id}">${icon('file')} Offerte maken</button>
         </div>
       </div>
-      <nav class="tabs">${TABS.map(t => `<a class="tab ${t[0] === tab ? 'active' : ''}" href="#/project/${p.id}/${t[0]}">${t[1]}</a>`).join('')}</nav>
+      <nav class="tabs">${TABS.map(t => `<a class="tab ${t[0] === tab ? 'active' : ''}" href="#/project/${p.id}/${t[0]}">${t[1]}${t[0] === 'email' && unread ? ` <span class="tab-badge" title="${unread} nieuw">${unread}</span>` : ''}</a>`).join('')}</nav>
       <div class="tab-body">${body}</div>`;
   }
   function tabPlanning(p) {
@@ -470,7 +485,7 @@
   }
   function tabFinance(p) {
     const f = S.finance[p.id]; const kosten = financeCosts(p.id); const tu = projectHours(p.id);
-    const act = d => d.status === 'Open' || d.status === 'Verlopen' ? `<button class="btn sm ghost" data-action="remind-generic" data-who="${esc(p.contact)}">Herinner</button>` : d.status === 'Betaald' || d.status === 'Geaccepteerd' ? '' : `<button class="btn sm ghost" data-action="quote-for" data-id="${p.id}">Maken</button>`;
+    const act = d => d.status === 'Open' || d.status === 'Verlopen' ? `<button class="btn sm ghost" data-action="compose" data-id="${p.id}" data-kind="herinnering" data-nr="${esc(d.nr)}">${icon('send')} Herinner</button>` : d.status === 'Verstuurd' ? `<button class="btn sm ghost" data-action="compose" data-id="${p.id}" data-kind="offerte">${icon('send')} Opnieuw sturen</button>` : d.status === 'Betaald' || d.status === 'Geaccepteerd' ? '' : `<button class="btn sm ghost" data-action="quote-for" data-id="${p.id}">Maken</button>`;
     const doc = (label, d) => `<div class="fin-doc card"><div class="small muted">${label}</div><div class="strong big">${eur(d.bedrag)}</div><div class="small muted">${esc(d.nr)} · ${esc(d.datum)}</div><div class="row-between">${statusPillInv(d.status)}${act(d)}</div></div>`;
     return `<div class="fin-docs">
         ${doc('Offerte (excl. btw)', f.offerte)}
@@ -501,6 +516,7 @@
       </div>`;
   }
   function mountProject(p, tab) {
+    if (tab === 'email') (S.email.threads[p.id] || []).forEach(m => { m.nieuw = false; });
     if (tab === 'uren' && S.timer) {
       const iv = setInterval(() => { const el = $('#timer-val'); if (el && S.timer) el.textContent = tc((Date.now() - S.timer.start) / 1000).slice(0, 8); }, 500);
       cleanupFns.push(() => clearInterval(iv));
@@ -526,7 +542,7 @@
         <div><a class="back" href="#/project/${p.id}/feedback">${icon('arrowLeft')} ${esc(p.titel)}</a><h1>Review</h1><p class="muted">${esc(p.klant)} · klik op een opmerking om naar dat moment in de video te springen</p></div>
         <div class="head-actions">${reviewProjectSelect(p)}<button class="btn" data-action="share-review" data-id="${p.id}">${icon('link')} Deel reviewlink</button><button class="btn primary" data-action="approve" data-id="${p.id}" data-v="${v}" ${appr ? 'disabled' : ''}>${icon('check')} ${appr ? 'Goedgekeurd' : 'Goedkeuren'}</button></div>
       </div>
-      ${appr ? `<div class="banner ok">${icon('check')} Versie ${v} is goedgekeurd op ${esc(appr)}. De klant kan nu de definitieve video downloaden.</div>` : ''}
+      ${appr ? `<div class="banner ok">${icon('check')}<span class="grow">Versie ${v} is goedgekeurd op ${esc(appr)}. De klant kan nu de definitieve video downloaden.</span><button class="btn sm" data-action="compose" data-id="${p.id}" data-kind="oplevering">${icon('send')} Mail de klant</button></div>` : ''}
       <div class="review">
         <div class="review-main card">
           <div class="vswitch" role="tablist">${['v1', 'v2', 'v3'].map(x => `<a role="tab" class="${x === v ? 'active' : ''}" href="#/review/${p.id}/${x}">${x}${x === p.versie ? ' <small>nieuwste</small>' : ''}</a>`).join('')}<span class="tiny muted vs-note">Voorbeeldbeelden: open-source testclips</span></div>
@@ -906,6 +922,272 @@
     const u = $('.browser .url'); if (u) u.innerHTML = `${icon('lock')} ${esc(S.showreel.domein || 'jouwnaam.nl')}`;
   }
 
+  // ---------- E-mail (gesimuleerde koppeling met Microsoft 365 / Outlook en Gmail) ----------
+  const PROV = {
+    outlook: { label: 'Outlook', full: 'Microsoft 365 / Outlook', sub: 'Microsoft 365, Outlook.com en Exchange', bedrijf: 'Microsoft' },
+    gmail: { label: 'Gmail', full: 'Gmail', sub: 'Gmail en Google Workspace', bedrijf: 'Google' }
+  };
+  // Eenvoudige, zelfgetekende logo's (geen officiële beeldmerken)
+  const LOGO = {
+    outlook: '<svg class="prov-logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="11" y="6" width="19" height="20" rx="2.5" fill="#28a8ea"/><path d="M11.5 11.5l9 6 9-6" fill="none" stroke="#fff" stroke-width="1.6" opacity=".9"/><rect x="2" y="8" width="16" height="16" rx="2.5" fill="#0a64c8"/><ellipse cx="10" cy="16" rx="3.8" ry="4.5" fill="none" stroke="#fff" stroke-width="2.4"/></svg>',
+    gmail: '<svg class="prov-logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 10.5v13A2.5 2.5 0 0 0 5.5 26H9V14.2z" fill="#4285f4"/><path d="M29 10.5v13a2.5 2.5 0 0 1-2.5 2.5H23V14.2z" fill="#34a853"/><path d="M23 8.6v5.6l6-4.5V8.4c0-2.2-2.5-3.4-4.2-2.1z" fill="#fbbc04"/><path d="M9 14.2V8.6l7 5.3 7-5.3v5.6l-7 5.2z" fill="#ea4335"/><path d="M3 8.4v1.3l6 4.5V8.6L7.2 6.3C5.5 5 3 6.2 3 8.4z" fill="#c5221f"/></svg>'
+  };
+  const TPL_KEYS = ['offerte', 'factuur', 'herinnering', 'oplevering'];
+  const PLACEHOLDERS = ['{klant}', '{voornaam}', '{project}', '{portaallink}', '{documentnr}', '{bedrag}', '{vervaldatum}'];
+  const KIND_TITLE = { offerte: 'Offerte versturen', factuur: 'Factuur versturen', herinnering: 'Betaalherinnering versturen', oplevering: 'Opleveringsmail versturen', leeg: 'Nieuwe e-mail', reply: 'Antwoorden' };
+  const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const nowTime = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const isoAdd = (iso, days) => { const d = pd(iso); d.setDate(d.getDate() + days); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const firstName = c => { const w = String(c || '').split(' '); return w[0] === 'Dr.' ? c : w[0]; };
+  const clientEmailsOf = p => D.clientEmails[p.id] || (p.email ? [p.email] : []);
+  const clientEmail = p => clientEmailsOf(p)[0] || '';
+  const portalLink = p => `https://portaal.diafragmo.voorbeeld/${p.id}-8f3k2`;
+  const fillTpl = (str, vars) => String(str).replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null && vars[k] !== '' ? vars[k] : m));
+  function sender() {
+    const e = S.email;
+    if (e.active && e.accounts[e.active] && e.accounts[e.active].connected) return { k: e.active, label: PROV[e.active].label, adres: e.accounts[e.active].adres };
+    return { k: 'noreply', label: 'Diafragmo (noreply)', adres: 'noreply@diafragmo.voorbeeld' };
+  }
+  function renderKeep() { const y = window.scrollY; render(); window.scrollTo(0, y); }
+
+  function seedThread(p) {
+    const adr = clientEmail(p); if (!adr) return [];
+    const idx = STATUSES.indexOf(p.status), v = firstName(p.contact), me = S.email.accounts.outlook.adres, f = S.finance[p.id];
+    const done = p.status === 'Opgeleverd';
+    const base = done ? p.deadline : '2026-10-01';
+    const out = [];
+    const inn = (datum, tijd, onderwerp, tekst, extra) => out.push(Object.assign({ dir: 'in', van: p.contact, adres: adr, datum, tijd, onderwerp, tekst }, extra || {}));
+    const uit = (datum, tijd, onderwerp, tekst, bijlagen) => out.push({ dir: 'out', van: 'Sanne de Vries', adres: me, aan: adr, datum, tijd, onderwerp, tekst, bijlagen: bijlagen || [] });
+    const aanvraag = p.aanvraag || `Wij zijn op zoek naar een videomaker voor “${p.titel}”. We denken aan een ${String(p.type).toLowerCase()} die we online en op social media kunnen gebruiken. Heb je binnenkort tijd voor een kennismaking?`;
+    inn(idx === 0 ? (p.aanvraagDatum || '2026-10-01') : idx === 1 ? '2026-09-08' : isoAdd(base, -48), idx === 0 ? '10:24' : '09:41', `Aanvraag: ${p.titel}`, `Hoi Sanne,\n\n${aanvraag}\n\nGroet,\n${p.contact}\n${p.klant}`, idx === 0 ? { nieuw: true } : {});
+    if (idx >= 1) uit(idx === 1 ? '2026-09-15' : isoAdd(base, -42), '15:10', `Offerte ${f.offerte.nr} – ${p.titel}`, `Hoi ${v},\n\nLeuk dat we kennis hebben gemaakt! In de bijlage vind je de offerte voor “${p.titel}”. Akkoord geven kan met één klik in je klantportaal:\n${portalLink(p)}\n\nHartelijke groet,\nSanne`, [{ naam: f.offerte.nr + '.pdf', grootte: '82 KB' }]);
+    if (idx >= 2) inn(isoAdd(base, -39), '08:55', `Re: Offerte ${f.offerte.nr} – ${p.titel}`, `Hoi Sanne,\n\nZiet er goed uit, we gaan akkoord! Ik heb het in het portaal bevestigd.\n\nGroet,\n${v}`);
+    if (idx >= 3) uit(isoAdd(base, -25), '11:45', `Planning draaidag – ${p.titel}`, `Hoi ${v},\n\nHierbij de planning en het draaiboek voor de draaidag. Laat je weten of de tijden passen?\n\nHartelijke groet,\nSanne`, [{ naam: 'Draaiboek.pdf', grootte: '180 KB' }]);
+    if (idx >= 4 && p.versie !== '-') uit(done ? isoAdd(base, -8) : '2026-09-29', '16:30', `Versie ${p.versie.slice(1)} staat klaar: ${p.titel}`, `Hoi ${v},\n\nVersie ${p.versie.slice(1)} staat klaar in je klantportaal. Je kunt direct op het juiste moment in de video feedback geven:\n${portalLink(p)}\n\nHartelijke groet,\nSanne`);
+    const fb = D.feedbackWaiting.find(x => x.projectId === p.id);
+    if (fb) inn(done ? isoAdd(base, -6) : '2026-10-01', '16:05', `Re: Versie ${p.versie.slice(1)} staat klaar: ${p.titel}`, `Hoi Sanne,\n\nDank je wel! ${fb.quote} Verder ziet het er top uit.\n\nGroet,\n${v}`);
+    if (done) {
+      uit(base, '10:00', `Je video is klaar: ${p.titel}`, `Hoi ${v},\n\nDe definitieve versie staat klaar in je klantportaal. De downloadlink blijft 12 maanden geldig.\n\nHartelijke groet,\nSanne`);
+      inn(isoAdd(base, 1), '08:47', `Re: Je video is klaar: ${p.titel}`, `Hoi Sanne,\n\nSuper blij mee, iedereen is enthousiast. Bedankt voor de fijne samenwerking!\n\nGroet,\n${v}`);
+    }
+    return out.sort((a, b) => (a.datum + a.tijd).localeCompare(b.datum + b.tijd));
+  }
+
+  function findDoc(p, nr) {
+    const inv = S.invoices.find(i => i.nr === nr);
+    if (inv) return { nr: inv.nr, bedrag: inv.bedrag, vervalt: inv.vervalt };
+    const f = S.finance[p.id];
+    const d = [f.aanbetaling, f.eindfactuur].find(x => x.nr === nr);
+    return d ? { nr: d.nr, bedrag: d.bedrag, vervalt: isoAdd(todayIso(), 14) } : null;
+  }
+  function openInvoiceDoc(p) {
+    const inv = S.invoices.find(i => i.projectId === p.id && i.status !== 'Betaald');
+    if (inv) return { nr: inv.nr, bedrag: inv.bedrag, vervalt: inv.vervalt };
+    const f = S.finance[p.id];
+    const d = [f.aanbetaling, f.eindfactuur].find(x => x.status === 'Open' || x.status === 'Verlopen') || f.eindfactuur;
+    return { nr: d.nr === '–' ? 'F2026-034' : d.nr, bedrag: d.bedrag, vervalt: isoAdd(todayIso(), 14) };
+  }
+  function draftFor(p, kind, opt) {
+    opt = opt || {}; ensure(p);
+    const adr = clientEmail(p);
+    const d = { pid: p.id, kind, origKind: kind, to: adr ? `${p.contact} <${adr}>` : '', subject: '', body: '', att: [], onSent: opt.onSent || null, title: opt.title };
+    d.origOnSent = d.onSent;
+    const vars = { klant: p.klant, voornaam: firstName(p.contact), project: p.titel, portaallink: portalLink(p), afzender: D.studio.eigenaar, documentnr: '', bedrag: '', vervaldatum: '' };
+    let doc = opt.doc || (opt.nr ? findDoc(p, opt.nr) : null);
+    if (kind === 'offerte') {
+      const o = S.finance[p.id].offerte;
+      doc = doc || { nr: o.nr !== '–' ? o.nr : 'O2026-022', bedrag: Math.round(p.budget * 121) / 100 };
+    } else if (kind === 'factuur' || kind === 'herinnering') doc = doc || openInvoiceDoc(p);
+    d.doc = doc;
+    if (doc) { vars.documentnr = doc.nr; vars.bedrag = eur(doc.bedrag); vars.vervaldatum = doc.vervalt ? fdate(doc.vervalt) : ''; }
+    if (TPL_KEYS.includes(kind)) {
+      const t = S.email.templates[kind];
+      d.subject = fillTpl(t.onderwerp, vars); d.body = fillTpl(t.body, vars);
+      if (kind !== 'oplevering' && doc) d.att = [{ naam: doc.nr + '.pdf', grootte: kind === 'offerte' ? '84 KB' : '66 KB' }];
+    } else if (kind === 'reply' && opt.msg) {
+      const m = opt.msg;
+      d.to = `${m.van} <${m.adres}>`;
+      d.subject = /^re:/i.test(m.onderwerp) ? m.onderwerp : 'Re: ' + m.onderwerp;
+      d.body = `Hoi ${firstName(m.van)},\n\n\n\nHartelijke groet,\nSanne\n\nOp ${fdate(m.datum)} om ${m.tijd} schreef ${m.van}:\n` + m.tekst.split('\n').map(l => '> ' + l).join('\n');
+    } else {
+      d.kind = d.origKind = 'leeg';
+      d.subject = p.titel; d.body = fillTpl('Hoi {voornaam},\n\n\n\nHartelijke groet,\nSanne', vars);
+    }
+    return d;
+  }
+
+  function sendAsHtml(s, inCompose) {
+    if (s.k !== 'noreply') return `<div class="send-as linked">${LOGO[s.k]}<div class="grow small"><span class="muted">Verzonden via</span> <strong>${esc(s.label)}</strong> · ${esc(s.adres)}</div><a class="link" href="#/instellingen/email">Wijzig</a></div>`;
+    return `<div class="send-as nolink"><div class="row gap">${icon('msg')}<div class="grow"><div class="strong small">Koppel je e-mail in Instellingen</div><div class="tiny">Zonder koppeling wordt dit verzonden via Diafragmo (noreply) namens ${esc(D.studio.naam)}. Antwoorden gaan naar ${esc(D.studio.email)}.</div></div></div>
+      <div class="row gap wrap send-as-btns"><a class="btn sm" href="#/instellingen/email">${icon('settings')} Koppel je e-mail</a>${inCompose ? `<button type="button" class="btn sm ghost" data-action="compose-connect" data-k="outlook">${LOGO.outlook} Outlook</button><button type="button" class="btn sm ghost" data-action="compose-connect" data-k="gmail">${LOGO.gmail} Gmail</button>` : ''}</div></div>`;
+  }
+  const attHtml = att => att.map((a, i) => `<span class="att-chip">${icon('file')}<span class="att-name">${esc(a.naam)}</span><small>${esc(a.grootte)}</small><button type="button" class="att-x" data-action="cmp-del-att" data-i="${i}" aria-label="Bijlage ${esc(a.naam)} verwijderen">${icon('x')}</button></span>`).join('') +
+    `<button type="button" class="chip" data-action="cmp-add-att">${icon('plus')} Bijlage</button>`;
+
+  let currentDraft = null;
+  function openCompose(d) {
+    currentDraft = d;
+    const s = sender(), e = S.email;
+    const fromTxt = s.k === 'noreply' ? `${esc(D.studio.naam)} via Diafragmo &lt;${esc(s.adres)}&gt;` : `Sanne de Vries &lt;${esc(s.adres)}&gt;`;
+    const bccAdr = s.k === 'noreply' ? D.studio.email : s.adres;
+    modal({
+      title: d.title || KIND_TITLE[d.kind] || 'Nieuwe e-mail', wide: true,
+      body: `<form id="compose-form" class="compose">
+        ${sendAsHtml(s, true)}
+        <div class="cmp-fields">
+          <div class="cmp-row"><span class="cmp-lbl">Van</span><span class="cmp-val small">${fromTxt}</span></div>
+          <label class="cmp-row"><span class="cmp-lbl">Aan</span><input id="cmp-to" required pattern=".*[^@\\s]+@[^@\\s]+\\.[^@\\s]+.*" title="Vul een geldig e-mailadres in" placeholder="naam@bedrijf.nl" value="${esc(d.to)}"></label>
+          ${e.bcc ? `<div class="cmp-row"><span class="cmp-lbl">Bcc</span><span class="cmp-val small muted">${esc(bccAdr)} (naar mezelf)</span></div>` : ''}
+          <label class="cmp-row"><span class="cmp-lbl">Onderwerp</span><input id="cmp-subj" required value="${esc(d.subject)}"></label>
+          ${d.kind !== 'reply' ? `<label class="cmp-row"><span class="cmp-lbl">Sjabloon</span><select id="cmp-tpl" aria-label="Sjabloon">${[['leeg', 'Leeg bericht']].concat(TPL_KEYS.map(k => [k, S.email.templates[k].naam])).map(o => `<option value="${o[0]}" ${o[0] === d.kind ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select></label>` : ''}
+        </div>
+        <textarea id="cmp-body" rows="9" aria-label="Bericht">${esc(d.body)}</textarea>
+        ${e.sigOn ? `<div class="cmp-sig"><div class="tiny muted">Handtekening · <a class="link" href="#/instellingen/email">aanpassen</a></div><div class="sig-text">${esc(e.sig)}</div></div>` : ''}
+        <div class="att-row" id="cmp-att">${attHtml(d.att)}</div>
+        <p class="tiny muted">Prototype: er wordt geen echte e-mail verstuurd. Na versturen staat het bericht in het tabblad E-mail van het project.</p>
+        <button type="submit" hidden></button>
+      </form>`,
+      actions: [{ label: 'Annuleren', cls: 'ghost', onClick: closeModal }, { label: `${icon('send')} Verstuur`, cls: 'primary', onClick: sendCompose }]
+    });
+    $('#compose-form').addEventListener('submit', ev => { ev.preventDefault(); ev.stopPropagation(); sendCompose(); });
+    setTimeout(() => { const b = $('#cmp-body'); if (b && !d.to) { const t = $('#cmp-to'); if (t) t.focus(); } else if (b) { b.focus(); try { const pos = b.value.indexOf('\n\n') + 2; b.setSelectionRange(pos, pos); b.scrollTop = 0; } catch (er) { /* noop */ } } }, 40);
+  }
+  function readCompose() {
+    const d = currentDraft; if (!d) return null;
+    const to = $('#cmp-to'), su = $('#cmp-subj'), bo = $('#cmp-body');
+    if (to) d.to = to.value; if (su) d.subject = su.value; if (bo) d.body = bo.value;
+    return d;
+  }
+  function sendCompose() {
+    const f = $('#compose-form'); if (!f || !f.reportValidity()) return;
+    const d = readCompose(), s = sender(), e = S.email;
+    const m = d.to.match(/<([^>]+)>/); const aan = m ? m[1].trim() : d.to.trim();
+    const toName = m ? d.to.slice(0, d.to.indexOf('<')).trim() : aan;
+    const msg = { dir: 'out', van: 'Sanne de Vries', adres: s.adres, aan, datum: todayIso(), tijd: nowTime(), onderwerp: d.subject, tekst: d.body + (e.sigOn && e.sig ? '\n\n-- \n' + e.sig : ''), bijlagen: d.att.slice(), via: s.label, bcc: e.bcc };
+    (S.email.threads[d.pid] = S.email.threads[d.pid] || []).push(msg);
+    closeModal(); currentDraft = null; S.email.filter = 'Alle';
+    if (d.onSent) d.onSent();
+    toast(`Verzonden (demo) · via ${esc(s.label)} aan ${esc(toName || aan)}${e.bcc ? ' · kopie (bcc) naar jezelf' : ''}`);
+    renderKeep();
+  }
+
+  function openConsent(k, after) {
+    const a = S.email.accounts[k], pr = PROV[k];
+    modal({
+      title: k === 'outlook' ? 'Aanmelden bij Microsoft (demo)' : 'Inloggen met Google (demo)',
+      body: `<div class="consent">
+        <div class="consent-logos"><span class="consent-app"><span class="logo-mark"></span></span><span class="consent-dots"><i></i><i></i><i></i></span><span class="consent-prov">${LOGO[k]}</span></div>
+        <div class="consent-acct"><span class="avatar sm">SV</span><div class="grow"><div class="strong small">Sanne de Vries</div><div class="tiny muted">${esc(a.adres)}</div></div><span class="tiny muted">${esc(pr.bedrijf)}-account</span></div>
+        <p class="consent-q"><strong>Diafragmo</strong> wil:</p>
+        <ul class="perm-list">
+          <li>${icon('send')}<div><div class="strong">E-mail verzenden namens jou</div><div class="tiny muted">Offertes, facturen en herinneringen gaan vanaf ${esc(a.adres)} en staan ook in je eigen map Verzonden.</div></div></li>
+          <li>${icon('msg')}<div><div class="strong">Berichten met klanten lezen die bij projecten horen</div><div class="tiny muted">Alleen mail van en naar adressen van je klanten. Je overige mail blijft privé.</div></div></li>
+        </ul>
+        <p class="tiny muted">Je kunt deze toegang altijd intrekken in Instellingen of in je ${esc(pr.bedrijf)}-account. Demo: er wordt niet echt ingelogd en er wordt niets opgeslagen.</p>
+      </div>`,
+      actions: [{ label: 'Annuleren', cls: 'ghost', onClick: () => { if (after) after(false); else closeModal(); } }, {
+        label: 'Toestaan', cls: 'primary', onClick: () => {
+          const body = $('.modal-body'); if (body) body.innerHTML = `<div class="paying"><div class="spinner blue"></div><p>Verbinden met ${esc(pr.label)}…</p></div>`;
+          $$('.modal-foot .btn').forEach(b => { b.disabled = true; });
+          const tmo = setTimeout(() => {
+            a.connected = true; a.sinds = nowLabel();
+            if (!S.email.active || !S.email.accounts[S.email.active].connected) S.email.active = k;
+            toast(`${esc(pr.label)} gekoppeld: ${esc(a.adres)} (demo)`);
+            if (after) after(true); else { closeModal(); renderKeep(); }
+          }, 900);
+          cleanupFns.push(() => clearTimeout(tmo));
+        }
+      }]
+    });
+  }
+
+  // Projecttab E-mail
+  function mailItem(p, m, open) {
+    const me = m.dir === 'out';
+    return `<details class="mail ${m.dir} ${m.nieuw ? 'unread' : ''}" ${open ? 'open' : ''}>
+      <summary>
+        <span class="avatar sm ${me ? '' : 'klant'}">${me ? 'SV' : initials(m.van)}</span>
+        <div class="grow">
+          <div class="row-between"><span class="strong clamp">${me ? 'Jij' : esc(m.van)}${m.nieuw ? ' <span class="pill inv-open">Nieuw</span>' : ''}</span><span class="tiny muted nowrap">${fdateShort(m.datum)} · ${esc(m.tijd)}</span></div>
+          <div class="small clamp"><span class="dir-tag ${m.dir}">${me ? '↗ Verzonden' : '↙ Ontvangen'}</span> ${esc(m.onderwerp)}</div>
+        </div>
+      </summary>
+      <div class="mail-body">
+        <div class="tiny muted">${me ? `Van ${esc(m.adres)} aan ${esc(m.aan)}` : `Van ${esc(m.adres)}`}${m.via ? ` · verzonden via ${esc(m.via)}` : ''}${m.bcc ? ' · bcc naar jezelf' : ''}</div>
+        <div class="mail-text">${esc(m.tekst)}</div>
+        ${(m.bijlagen || []).length ? `<div class="att-row">${m.bijlagen.map(b => `<button class="att-chip" data-action="download" data-name="${esc(b.naam)}">${icon('file')}<span class="att-name">${esc(b.naam)}</span><small>${esc(b.grootte)}</small></button>`).join('')}</div>` : ''}
+        ${me ? '' : `<div class="mail-actions"><button class="btn sm" data-action="reply" data-id="${p.id}" data-i="${m.i}">${icon('arrowLeft')} Antwoord</button></div>`}
+      </div>
+    </details>`;
+  }
+  function tabEmail(p) {
+    const all = (S.email.threads[p.id] || []).map((m, i) => Object.assign({ i }, m)).sort((a, b) => (b.datum + b.tijd).localeCompare(a.datum + a.tijd));
+    if (S.email.filterPid !== p.id) { S.email.filter = 'Alle'; S.email.filterPid = p.id; }
+    const flt = S.email.filter;
+    const list = all.filter(m => flt === 'Alle' || (flt === 'Ontvangen' ? m.dir === 'in' : m.dir === 'out'));
+    const s = sender(), adrs = clientEmailsOf(p);
+    const quick = [['offerte', 'file', 'Offerte'], ['factuur', 'euro', 'Factuur'], ['herinnering', 'clock', 'Betaalherinnering'], ['oplevering', 'check', 'Oplevering']];
+    return `${s.k === 'noreply' ? `<div class="banner warn">${icon('msg')}<div class="grow small">Koppel je e-mail om berichten met ${esc(p.contact)} automatisch hier te zien en vanaf je eigen adres te versturen. <span class="muted">Hieronder zie je voorbeelddata.</span></div><a class="btn sm" href="#/instellingen/email">Koppel e-mail</a></div>` : ''}
+      <div class="grid-2 wide-left">
+        <section class="card">
+          <div class="card-head"><h2>E-mail met ${esc(p.contact)}</h2><div class="row gap wrap"><div class="seg sm">${['Alle', 'Ontvangen', 'Verzonden'].map(x => `<button class="${flt === x ? 'active' : ''}" data-action="mail-filter" data-f="${x}">${x}</button>`).join('')}</div><button class="btn sm primary" data-action="compose" data-id="${p.id}" data-kind="leeg">${icon('plus')} Nieuwe e-mail</button></div></div>
+          <p class="tiny muted mail-count">${all.length} berichten · ${all.filter(m => m.dir === 'in').length} ontvangen · ${all.filter(m => m.dir === 'out').length} verzonden · nieuwste bovenaan</p>
+          ${list.length ? `<div class="mail-list">${list.map((m, k) => mailItem(p, m, k < 2)).join('')}</div>` : `<div class="empty small">${icon('msg')}<p>${all.length ? 'Geen berichten in deze weergave.' : `Nog geen e-mails met ${esc(p.contact)}.`}</p><button class="btn sm primary" data-action="compose" data-id="${p.id}" data-kind="leeg">${icon('plus')} Nieuwe e-mail</button></div>`}
+        </section>
+        <section class="card">
+          <div class="card-head"><h2>Automatisch gekoppeld</h2>${S.email.autoKoppel ? '<span class="pill inv-betaald">Aan</span>' : '<span class="pill">Uit</span>'}</div>
+          ${adrs.length ? `<p class="small muted">Mail van en naar deze adressen verschijnt automatisch bij dit project:</p><ul class="addr-list">${adrs.map(a => `<li>${icon('link')}<span>${esc(a)}</span></li>`).join('')}</ul>` : `<p class="small muted">Nog geen e-mailadres bekend voor ${esc(p.contact)}. Zodra je mailt, koppelt Diafragmo het adres aan dit project.</p>`}
+          ${sendAsHtml(s, false)}
+          <div class="card-head mt"><h2>Snel versturen</h2></div>
+          <div class="quick-mails">${quick.map(q => `<button class="btn sm" data-action="compose" data-id="${p.id}" data-kind="${q[0]}">${icon(q[1])} ${q[2]}</button>`).join('')}</div>
+          <p class="tiny muted">Sjablonen pas je aan in <a class="link" href="#/instellingen/email">Instellingen → E-mail</a>.</p>
+        </section>
+      </div>`;
+  }
+
+  // Instellingen → E-mail
+  function providerCard(k) {
+    const a = S.email.accounts[k], active = S.email.active === k, pr = PROV[k];
+    return `<div class="provider ${a.connected ? 'connected' : ''} ${active && a.connected ? 'active' : ''}">
+      <div class="prov-head"><span class="prov-logo-box">${LOGO[k]}</span><div class="grow"><div class="strong">${esc(pr.full)}</div><div class="small muted">${esc(pr.sub)}</div></div>${a.connected ? '<span class="pill inv-betaald">Gekoppeld</span>' : '<span class="pill">Niet gekoppeld</span>'}</div>
+      ${a.connected ? `
+        <div class="prov-acct"><span class="avatar sm">SV</span><div class="grow"><div class="strong small">${esc(a.adres)}</div><div class="tiny muted">Gekoppeld op ${esc(a.sinds)} · laatst gesynchroniseerd: zojuist</div></div></div>
+        <div class="row-between wrap"><label class="check radio"><input type="radio" name="email-active" data-action="email-active" data-k="${k}" ${active ? 'checked' : ''}> ${active ? '<strong>Actief verzendaccount</strong>' : 'Gebruik als verzendaccount'}</label><button class="btn sm ghost" data-action="email-disconnect" data-k="${k}">Ontkoppelen</button></div>`
+        : `<p class="small muted">Verstuur vanaf je eigen ${esc(pr.label)}-adres en zie mail met klanten bij je projecten.</p><button class="btn primary" data-action="email-connect" data-k="${k}">${icon('link')} Koppelen</button>`}
+    </div>`;
+  }
+  function emailSettingsHtml() {
+    const e = S.email, s = sender(), t = e.templates[e.tplSel];
+    const opt = (k, title, sub) => `<li class="row-item"><div class="grow"><div class="strong">${title}</div><div class="small muted">${sub}</div></div><label class="switch"><input type="checkbox" data-action="email-opt" data-k="${k}" ${e[k] ? 'checked' : ''} aria-label="${esc(title)}"><span></span></label></li>`;
+    return `<section class="card email-settings" id="email-settings">
+      <div class="card-head"><div><h2>E-mail</h2><p class="small muted">Verstuur offertes, facturen en herinneringen vanaf je eigen adres. Mail met klanten verschijnt automatisch bij het juiste project.</p></div>
+        ${s.k !== 'noreply' ? `<span class="send-pill">${LOGO[s.k]} Verzenden via ${esc(s.label)}</span>` : '<span class="pill inv-open">Nog niet gekoppeld</span>'}</div>
+      <div class="providers">${['outlook', 'gmail'].map(providerCard).join('')}</div>
+      ${s.k === 'noreply' ? `<p class="small muted">Zonder koppeling gaan mails via Diafragmo (noreply) en komen antwoorden binnen op ${esc(D.studio.email)}.</p>` : `<p class="tiny muted">Er kan één verzendaccount actief zijn. ${e.accounts.outlook.connected && e.accounts.gmail.connected ? 'Kies hierboven welk account je gebruikt.' : ''}</p>`}
+      <div class="email-opts">
+        <div>
+          <h3>Verzendopties</h3>
+          <ul class="list">
+            ${opt('sigOn', 'E-mailhandtekening', 'Onder elke mail die je vanuit Diafragmo verstuurt')}
+            ${opt('bcc', 'BCC naar mezelf', 'Ontvang een kopie van elke verstuurde mail')}
+            ${opt('autoKoppel', 'Automatisch koppelen aan projecten', 'Op basis van het e-mailadres van de klant')}
+          </ul>
+          ${e.sigOn ? `<label class="mt-s">Handtekening<textarea data-email-sig rows="4">${esc(e.sig)}</textarea></label>` : ''}
+        </div>
+        <div>
+          <h3>Sjablonen</h3>
+          <div class="seg sm tpl-seg">${TPL_KEYS.map(k => `<button class="${k === e.tplSel ? 'active' : ''}" data-action="tpl-sel" data-k="${k}">${esc(e.templates[k].naam)}</button>`).join('')}</div>
+          <div class="form-col tpl-form">
+            <label>Onderwerp<input data-tpl-f="onderwerp" value="${esc(t.onderwerp)}"></label>
+            <label>Bericht<textarea data-tpl-f="body" rows="9">${esc(t.body)}</textarea></label>
+          </div>
+          <div class="ph-chips"><span class="tiny muted">Invoegen:</span>${PLACEHOLDERS.map(x => `<button class="chip ph" data-action="tpl-insert" data-ph="${x}">${x}</button>`).join('')}</div>
+          <div class="row gap wrap tpl-actions"><button class="btn sm ghost" data-action="tpl-reset">Standaardtekst herstellen</button><button class="btn sm" data-action="tpl-preview">${icon('eye')} Voorbeeld met Bakkerij Van Dam</button></div>
+        </div>
+      </div>
+    </section>`;
+  }
+
   // ---------- Instellingen ----------
   function viewSettings() {
     const st = S.settings;
@@ -914,7 +1196,7 @@
       { naam: 'Pro', prijs: 39, f: ['Alles uit Basis', 'Review met feedback op timecode', 'Showreel-site op eigen domein', 'Boekhoudkoppelingen', 'Freelancers & projectmarge', '2 TB opslag'] }
     ];
     return `
-      <div class="page-head"><div><h1>Instellingen</h1><p class="muted">Profiel, abonnement en koppelingen</p></div><div class="head-actions"><button class="btn primary" data-action="save-settings">${icon('check')} Opslaan</button></div></div>
+      <div class="page-head"><div><h1>Instellingen</h1><p class="muted">Profiel, abonnement, e-mail en koppelingen</p></div><div class="head-actions"><button class="btn primary" data-action="save-settings">${icon('check')} Opslaan</button></div></div>
       <div class="grid-2">
         <section class="card">
           <div class="card-head"><h2>Bedrijfsprofiel</h2></div>
@@ -951,7 +1233,8 @@
             <li class="row-item"><span class="icon-box logo-box">${esc(k.slice(0, 2))}</span><div class="grow"><div class="strong">${esc(k)}</div><div class="small muted">${st.koppelingen[k] ? 'Verbonden – facturen en betalingen worden gesynchroniseerd' : 'Niet verbonden'}</div></div>
               <label class="switch"><input type="checkbox" data-action="toggle-int" data-k="${esc(k)}" ${st.koppelingen[k] ? 'checked' : ''} aria-label="${esc(k)} koppelen"><span></span></label></li>`).join('')}</ul>
         </section>
-      </div>`;
+      </div>
+      ${emailSettingsHtml()}`;
   }
   function viewNotFound() { return `<div class="empty card">${icon('search')}<h2>Pagina niet gevonden</h2><p class="muted">Deze pagina bestaat niet in het prototype.</p><a class="btn primary" href="#/dashboard">Naar dashboard</a></div>`; }
 
@@ -959,7 +1242,7 @@
   function newProject(data) {
     const id = 'n' + (Date.now() % 1000000);
     const grads = [['#ff9a5a', '#c2410c'], ['#60a5fa', '#1e3a8a'], ['#a78bfa', '#4c1d95'], ['#34d399', '#065f46']];
-    const p = { id, titel: data.titel, klant: data.klant, contact: data.contact || data.klant, status: 'Aanvraag', deadline: data.deadline || '2026-12-15', budget: Number(data.budget) || 0, type: data.type || 'Bedrijfsfilm', grad: grads[S.projects.length % grads.length], versie: '-' };
+    const p = { id, titel: data.titel, klant: data.klant, contact: data.contact || data.klant, status: 'Aanvraag', deadline: data.deadline || '2026-12-15', budget: Number(data.budget) || 0, type: data.type || 'Bedrijfsfilm', grad: grads[S.projects.length % grads.length], versie: '-', email: data.email || '', aanvraag: data.aanvraag || '', aanvraagDatum: todayIso() };
     S.projects.unshift(p); return p;
   }
   const A = {
@@ -970,7 +1253,7 @@
     'new-project': () => formModal('Nieuw project', `
         <label>Projectnaam*<input name="titel" required placeholder="Bijv. Bedrijfsfilm 2027"></label>
         <label>Klant*<input name="klant" required placeholder="Bijv. Bakkerij Van Dam"></label>
-        <label>Contactpersoon<input name="contact" placeholder="Naam"></label>
+        <div class="form-grid two"><label>Contactpersoon<input name="contact" placeholder="Naam"></label><label>E-mail contactpersoon<input type="email" name="email" placeholder="naam@bedrijf.nl"></label></div>
         <div class="form-grid two"><label>Soort<select name="type"><option>Bedrijfsfilm</option><option>Aftermovie</option><option>Social content</option><option>Productvideo</option><option>Trouwfilm</option></select></label>
         <label>Deadline<input type="date" name="deadline" value="2026-12-15"></label></div>`, 'Project aanmaken', d => {
         const p = newProject(d); toast(`Project “${esc(p.titel)}” aangemaakt`); go('#/project/' + p.id + '/planning');
@@ -980,9 +1263,42 @@
     'proj-view': el => { S.projectView = el.dataset.v; render(); },
     'set-status': el => { const p = proj(el.dataset.id); if (p.status === el.dataset.status) return; p.status = el.dataset.status; toast(`Status gewijzigd naar ${esc(p.status)}`); render(); },
     'quote-for': el => { const p = proj(el.dataset.id); S.quote = defaultQuote(p.status === 'Opgeleverd' ? 'p6' : p.id); go('#/financien'); },
-    'remind': el => { const i = S.invoices.find(x => x.nr === el.dataset.nr); toast(`Betaalherinnering voor ${esc(i.nr)} verstuurd aan ${esc(i.klant)} (demo)`); },
+    'remind': el => { const i = S.invoices.find(x => x.nr === el.dataset.nr); openCompose(draftFor(proj(i.projectId), 'herinnering', { doc: { nr: i.nr, bedrag: i.bedrag, vervalt: i.vervalt } })); },
     'remind-generic': el => toast(`Herinnering verstuurd aan ${esc(el.dataset.who)} (demo)`),
-    'send-invoice': el => { const i = S.invoices.find(x => x.nr === el.dataset.nr); i.status = 'Open'; toast(`Factuur ${esc(i.nr)} verstuurd met iDEAL-betaallink (demo)`); render(); },
+    'send-invoice': el => { const i = S.invoices.find(x => x.nr === el.dataset.nr); openCompose(draftFor(proj(i.projectId), 'factuur', { doc: { nr: i.nr, bedrag: i.bedrag, vervalt: i.vervalt }, onSent: () => { i.status = 'Open'; } })); },
+    // E-mail
+    'compose': el => { const p = proj(el.dataset.id); if (p) openCompose(draftFor(p, el.dataset.kind || 'leeg', { nr: el.dataset.nr })); },
+    'reply': el => { const p = proj(el.dataset.id); const m = (S.email.threads[p.id] || [])[Number(el.dataset.i)]; if (m) openCompose(draftFor(p, 'reply', { msg: m })); },
+    'compose-connect': el => { const d = readCompose(); openConsent(el.dataset.k, () => openCompose(d)); },
+    'cmp-del-att': el => { const d = readCompose(); d.att.splice(Number(el.dataset.i), 1); $('#cmp-att').innerHTML = attHtml(d.att); },
+    'cmp-add-att': () => {
+      const d = readCompose(); const opts = [{ naam: 'Algemene_voorwaarden.pdf', grootte: '120 KB' }, { naam: 'Callsheet.pdf', grootte: '96 KB' }, { naam: 'Moodboard.pdf', grootte: '2,4 MB' }];
+      const next = opts.find(o => !d.att.some(a => a.naam === o.naam));
+      if (!next) { toast('Alle voorbeeldbijlagen zijn al toegevoegd'); return; }
+      d.att.push(next); $('#cmp-att').innerHTML = attHtml(d.att); toast(`Bijlage “${esc(next.naam)}” toegevoegd (demo)`);
+    },
+    'mail-filter': el => { S.email.filter = el.dataset.f; renderKeep(); },
+    'email-connect': el => openConsent(el.dataset.k),
+    'email-disconnect': el => {
+      const k = el.dataset.k, e = S.email; e.accounts[k].connected = false; e.accounts[k].sinds = null;
+      if (e.active === k) { const other = Object.keys(e.accounts).find(x => e.accounts[x].connected); e.active = other || null; }
+      toast(`${PROV[k].label} ontkoppeld (demo)${e.active ? ' · verzenden gaat nu via ' + PROV[e.active].label : ''}`); renderKeep();
+    },
+    'email-active': el => { S.email.active = el.dataset.k; toast(`Actief verzendaccount: ${esc(PROV[el.dataset.k].label)} · ${esc(S.email.accounts[el.dataset.k].adres)}`); renderKeep(); },
+    'email-opt': el => {
+      const labels = { sigOn: 'E-mailhandtekening', bcc: 'BCC naar mezelf', autoKoppel: 'Automatisch koppelen' };
+      S.email[el.dataset.k] = el.checked; toast(`${labels[el.dataset.k]} ${el.checked ? 'aan' : 'uit'}`); renderKeep();
+    },
+    'tpl-sel': el => { S.email.tplSel = el.dataset.k; renderKeep(); },
+    'tpl-reset': () => { const k = S.email.tplSel; S.email.templates[k] = JSON.parse(JSON.stringify(DEFAULT_TPL[k])); toast(`Sjabloon “${DEFAULT_TPL[k].naam}” hersteld`); renderKeep(); },
+    'tpl-preview': () => openCompose(draftFor(proj('p1'), S.email.tplSel)),
+    'tpl-insert': el => {
+      const t = (lastTplField && document.body.contains(lastTplField)) ? lastTplField : $('[data-tpl-f="body"]'); if (!t) return;
+      const a = t.selectionStart == null ? t.value.length : t.selectionStart, b = t.selectionEnd == null ? a : t.selectionEnd;
+      t.value = t.value.slice(0, a) + el.dataset.ph + t.value.slice(b);
+      S.email.templates[S.email.tplSel][t.dataset.tplF] = t.value;
+      t.focus(); try { t.setSelectionRange(a + el.dataset.ph.length, a + el.dataset.ph.length); } catch (er) { /* noop */ }
+    },
     'add-shootday': el => formModal('Draaidag toevoegen', `
         <label>Titel*<input name="titel" required value="Draaidag ${S.planning[el.dataset.id].draaidagen.length + 1}"></label>
         <div class="form-grid two"><label>Datum*<input type="date" name="datum" required value="2026-10-20"></label><label>Tijd<input name="tijd" value="09:00 – 17:00"></label></div>
@@ -1075,13 +1391,7 @@
     'back-to-quote': () => { const q = S.quote; q.type = 'Offerte'; q.nr = 'O2026-022'; q.status = 'Concept'; q.geldig = '2026-10-31'; render(); },
     'send-quote': () => {
       const q = S.quote, p = proj(q.projectId), c = qCalc(q);
-      modal({
-        title: `${q.type} versturen`, wide: true,
-        body: `<div class="form-col"><label>Aan<input value="${esc(p.contact)} <${esc(slug(p.contact).replace(/^-|-$/g, '').replace(/-/g, '.'))}@voorbeeld.nl>"></label><label>Onderwerp<input value="${q.type} ${esc(q.nr)} – ${esc(p.titel)}"></label>
-          <label>Bericht<textarea rows="7">Hoi ${esc(p.contact.split(' ')[0])},&#10;&#10;Hierbij ${q.type === 'Offerte' ? 'de offerte' : 'de factuur'} voor “${esc(p.titel)}” (${eur(c.tot)} incl. btw). ${q.type === 'Offerte' ? 'Via de knop in deze mail geef je direct online akkoord.' : 'Je kunt direct betalen met iDEAL via de knop in deze mail.'}&#10;&#10;Groet,&#10;Sanne de Vries</textarea></label>
-          <p class="tiny muted">Prototype: er wordt geen e-mail verstuurd.</p></div>`,
-        actions: [{ label: 'Annuleren', cls: 'ghost', onClick: closeModal }, { label: `${icon('send')} Versturen`, cls: 'primary', onClick: () => { q.status = 'Verstuurd'; closeModal(); toast(`${q.type} ${esc(q.nr)} verstuurd aan ${esc(p.contact)} (demo)`); render(); } }]
-      });
+      openCompose(draftFor(p, q.type === 'Offerte' ? 'offerte' : 'factuur', { title: `${q.type} versturen`, doc: { nr: q.nr, bedrag: c.tot, vervalt: q.geldig }, onSent: () => { q.status = 'Verstuurd'; } }));
     },
     // Showreel
     'sr-toggle': el => { S.showreel.items[Number(el.dataset.i)].on = el.checked; render(); },
@@ -1115,7 +1425,7 @@
     },
     'public-request': (f, d) => {
       const klant = d.bedrijf || d.naam;
-      const p = newProject({ titel: d.type + ' – aanvraag via website', klant, contact: d.naam, type: d.type, deadline: d.datum || '2026-12-15' });
+      const p = newProject({ titel: d.type + ' – aanvraag via website', klant, contact: d.naam, type: d.type, deadline: d.datum || '2026-12-15', email: d.email, aanvraag: d.bericht });
       S.showreelSent = { naam: d.naam, id: p.id, titel: p.titel, klant };
       render(); setTimeout(() => { const s = document.getElementById('site-form'); if (s) s.scrollIntoView(); }, 30);
     }
@@ -1140,12 +1450,20 @@
     if (el.matches('[data-action-change="review-project"]')) { go('#/review/' + el.value); return; }
     if (el.matches('[data-q]')) { S.quote[el.dataset.q] = el.type === 'checkbox' ? el.checked : el.value; renderQuoteLive(); return; }
     if (el.matches('[data-sr="formulier"]')) { S.showreel.formulier = el.checked; refreshReelPreview(); return; }
+    if (el.id === 'cmp-tpl' && currentDraft) {
+      const d = readCompose(); const nd = draftFor(proj(d.pid), el.value, { doc: d.origKind === el.value ? d.doc : null });
+      d.kind = el.value; d.subject = nd.subject; d.body = nd.body; d.att = nd.att; d.onSent = el.value === d.origKind ? d.origOnSent : null;
+      $('#cmp-subj').value = d.subject; $('#cmp-body').value = d.body; $('#cmp-att').innerHTML = attHtml(d.att);
+      return;
+    }
   });
   document.addEventListener('input', e => {
     const el = e.target;
     if (el.matches('[data-line]')) { const l = S.quote.lines[Number(el.dataset.line)]; const f = el.dataset.f; l[f] = f === 'omschrijving' ? el.value : (el.value === '' ? 0 : Number(el.value)); renderQuoteLive(); return; }
     if (el.matches('input[data-q]') && el.type !== 'checkbox') { S.quote[el.dataset.q] = el.value; renderQuoteLive(); return; }
     if (el.matches('[data-sr]') && el.type !== 'checkbox') { S.showreel[el.dataset.sr] = el.value; refreshReelPreview(); return; }
+    if (el.matches('[data-tpl-f]')) { S.email.templates[S.email.tplSel][el.dataset.tplF] = el.value; return; }
+    if (el.matches('[data-email-sig]')) { S.email.sig = el.value; return; }
     if (el.id === 'proj-search') { S.search = el.value; const pos = el.selectionStart; render(); const n = $('#proj-search'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (er) { /* noop */ } } }
   });
   document.addEventListener('submit', e => {
@@ -1153,6 +1471,8 @@
     e.preventDefault(); const fn = F[f.dataset.form];
     if (fn) fn(f, Object.fromEntries(new FormData(f).entries()));
   });
+  let lastTplField = null;
+  document.addEventListener('focusin', e => { if (e.target.matches && e.target.matches('[data-tpl-f]')) lastTplField = e.target; });
   window.addEventListener('hashchange', render);
   function boot() {
     $$('[data-ic]').forEach(el => { el.insertAdjacentHTML('afterbegin', icon(el.dataset.ic)); });
