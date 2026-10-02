@@ -1076,7 +1076,7 @@
     modal({
       title: k === 'outlook' ? 'Aanmelden bij Microsoft (demo)' : 'Inloggen met Google (demo)',
       body: `<div class="consent">
-        <div class="consent-logos"><span class="consent-app"><span class="logo-mark"></span></span><span class="consent-dots"><i></i><i></i><i></i></span><span class="consent-prov">${LOGO[k]}</span></div>
+        <div class="consent-logos"><span class="consent-app"><img src="img/app-icoon.svg" alt="Diafragmo" style="width:52px;height:52px;border-radius:14px;display:block"></span><span class="consent-dots"><i></i><i></i><i></i></span><span class="consent-prov">${LOGO[k]}</span></div>
         <div class="consent-acct"><span class="avatar sm">SV</span><div class="grow"><div class="strong small">Sanne de Vries</div><div class="tiny muted">${esc(a.adres)}</div></div><span class="tiny muted">${esc(pr.bedrijf)}-account</span></div>
         <p class="consent-q"><strong>Diafragmo</strong> wil:</p>
         <ul class="perm-list">
