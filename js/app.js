@@ -98,6 +98,7 @@
     ext: '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>',
     trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
     send: '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+    shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
     lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
     euro: '<path d="M18 6.5A7 7 0 1 0 18 17.5"/><line x1="4" y1="10" x2="13" y2="10"/><line x1="4" y1="14" x2="13" y2="14"/>',
     users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -107,6 +108,13 @@
     arrowLeft: '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>'
   };
   function icon(n, cls) { return `<svg class="ic ${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`; }
+
+  // EU-sterrencirkel (12 sterren) als inline SVG
+  function euBadge(cls) {
+    let stars = '';
+    for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; stars += `<polygon transform="translate(${(24 + 14 * Math.cos(a)).toFixed(2)} ${(24 + 14 * Math.sin(a)).toFixed(2)})" points="0.00,-2.60 0.62,-0.85 2.47,-0.80 1.00,0.32 1.53,2.10 0.00,1.05 -1.53,2.10 -1.00,0.32 -2.47,-0.80 -0.62,-0.85"/>`; }
+    return `<svg class="${cls || 'eu-badge'}" viewBox="0 0 48 48" role="img" aria-label="EU"><circle cx="24" cy="24" r="24" fill="#003399"/><g fill="#ffcc00">${stars}</g></svg>`;
+  }
 
   // ---------- Afgeleide/ingevulde projectdata voor projecten zonder uitgewerkte voorbeelddata ----------
   function ensure(p) {
@@ -243,7 +251,7 @@
         const p = proj(r.a || 'p1') || proj('p1'); ensure(p); external = true;
         html = r.b === 'betaald' ? viewPaid(p) : viewPortal(p); mount = () => mountPortal(p); break;
       }
-      case 'instellingen': html = viewSettings(); if (r.a === 'email') mount = () => { const el = $('#email-settings'); if (el) el.scrollIntoView(); }; break;
+      case 'instellingen': html = viewSettings(); if (r.a === 'email' || r.a === 'hosting') mount = () => { const el = $(r.a === 'email' ? '#email-settings' : '#hosting-privacy'); if (el) el.scrollIntoView(); }; break;
       default: html = viewNotFound();
     }
     document.body.classList.toggle('external-mode', external);
@@ -660,6 +668,7 @@
           <label class="dropzone" id="dropzone"><input type="file" id="portal-file" multiple hidden>${icon('upload')}<span class="strong">Sleep bestanden hierheen</span><span class="small muted">of klik om te kiezen · logo's, foto's, muziek, teksten</span><span class="tiny muted">Prototype: bestanden worden niet echt geüpload.</span></label>
           <button class="btn sm ghost block" data-action="portal-demo-upload">Voorbeeldbestand toevoegen</button>
           <ul class="list files" id="portal-uploads">${portalUploadsHtml()}</ul>
+          <div class="eu-note">${icon('lock')} Versleuteld verstuurd en opgeslagen in de EU</div>
         </section>
         <section class="pcard">
           <h2>${icon('download')} Definitieve video</h2>
@@ -680,6 +689,7 @@
           <button class="btn ghost block sm" data-action="download" data-name="${esc(inv.nr)}.pdf">${icon('file')} Factuur als PDF</button>
         </section>
       </div>
+      <div class="eu-trust"><span class="eu-trust-badge">${euBadge('eu-flag')}${icon('lock')} Veilig gedeeld · gehost in de EU</span><span class="eu-trust-sub">Je video's, bestanden en gegevens blijven in Europa en worden beschermd volgens de AVG.</span></div>
       <footer class="portal-foot">Klantportaal van ${esc(D.studio.naam)} · aangedreven door <strong>Diafragmo</strong> · Prototype – voorbeelddata</footer>
     </div>`;
   }
@@ -1192,11 +1202,11 @@
   function viewSettings() {
     const st = S.settings;
     const plans = [
-      { naam: 'Basis', prijs: 24, f: ['Onbeperkt projecten & klanten', 'Klantportaal met jouw logo', 'Offertes & facturen met iDEAL-betaallink', 'Uren, kilometers & urencriterium', '250 GB opslag'] },
-      { naam: 'Pro', prijs: 39, f: ['Alles uit Basis', 'Review met feedback op timecode', 'Showreel-site op eigen domein', 'Boekhoudkoppelingen', 'Freelancers & projectmarge', '2 TB opslag'] }
+      { naam: 'Basis', prijs: 24, f: ['Onbeperkt projecten & klanten', 'Klantportaal met jouw logo', 'Offertes & facturen met iDEAL-betaallink', 'Uren, kilometers & urencriterium', '250 GB opslag', 'Soevereine hosting in de EU · AVG-proof'] },
+      { naam: 'Pro', prijs: 39, f: ['Alles uit Basis', 'Review met feedback op timecode', 'Showreel-site op eigen domein', 'Boekhoudkoppelingen', 'Freelancers & projectmarge', '2 TB opslag', 'Soevereine hosting in de EU · AVG-proof'] }
     ];
     return `
-      <div class="page-head"><div><h1>Instellingen</h1><p class="muted">Profiel, abonnement, e-mail en koppelingen</p></div><div class="head-actions"><button class="btn primary" data-action="save-settings">${icon('check')} Opslaan</button></div></div>
+      <div class="page-head"><div><h1>Instellingen</h1><p class="muted">Profiel, abonnement, hosting & privacy, e-mail en koppelingen</p></div><div class="head-actions"><button class="btn primary" data-action="save-settings">${icon('check')} Opslaan</button></div></div>
       <div class="grid-2">
         <section class="card">
           <div class="card-head"><h2>Bedrijfsprofiel</h2></div>
@@ -1234,6 +1244,26 @@
               <label class="switch"><input type="checkbox" data-action="toggle-int" data-k="${esc(k)}" ${st.koppelingen[k] ? 'checked' : ''} aria-label="${esc(k)} koppelen"><span></span></label></li>`).join('')}</ul>
         </section>
       </div>
+      <section class="card eu-card" id="hosting-privacy" aria-labelledby="eu-title">
+        <div class="eu-head">
+          ${euBadge()}
+          <div class="grow">
+            <div class="row gap wrap"><h2 id="eu-title">Hosting & privacy</h2><span class="eu-pill">100% Europese hosting · AVG-proof</span></div>
+            <p class="eu-lead strong">Soevereine hosting in de EU: je data blijft in Europa.</p>
+            <p class="small muted">Al je video's, bestanden, klantgegevens en facturen worden uitsluitend in de EU opgeslagen en verwerkt, door Europese aanbieders en onder Europees recht. Geen Amerikaanse cloud, dus niet onder de CLOUD Act.</p>
+          </div>
+        </div>
+        <ul class="eu-points">
+          <li>${icon('pin')}<div><strong>Opslag in datacenters in de EU</strong><span>Video's, bestanden en back-ups staan op servers binnen de Europese Unie.</span></div></li>
+          <li>${icon('globe')}<div><strong>Alleen Europese aanbieders</strong><span>We werken uitsluitend met Europese partijen, onder Europees recht.</span></div></li>
+          <li>${icon('lock')}<div><strong>Versleuteld opgeslagen en verstuurd</strong><span>Je bestanden gaan via een beveiligde verbinding en staan versleuteld opgeslagen.</span></div></li>
+          <li>${icon('shield')}<div><strong>AVG-proof</strong><span>Klantgegevens verwerken we volgens de AVG. Een verwerkersovereenkomst is beschikbaar.</span></div></li>
+        </ul>
+        <div class="eu-foot">
+          <button class="btn sm" data-action="download" data-name="Verwerkersovereenkomst Diafragmo.pdf">${icon('download')} Verwerkersovereenkomst (PDF)</button>
+          <span class="tiny muted">Je klanten zien in hun klantportaal: “Veilig gedeeld · gehost in de EU”.</span>
+        </div>
+      </section>
       ${emailSettingsHtml()}`;
   }
   function viewNotFound() { return `<div class="empty card">${icon('search')}<h2>Pagina niet gevonden</h2><p class="muted">Deze pagina bestaat niet in het prototype.</p><a class="btn primary" href="#/dashboard">Naar dashboard</a></div>`; }
