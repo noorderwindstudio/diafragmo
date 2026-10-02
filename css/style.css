@@ -653,3 +653,5 @@ button.att-chip:hover { border-color: #cfccc5; }
 .compose textarea { min-height: 170px; }
 .grid-2 > *, .email-opts > *, .providers > * { min-width: 0; }
 .builder > *, .grid-dash > *, .reel-grid > * { min-width: 0; }
+
+.logo-img { height: 28px; width: auto; display: block; }
