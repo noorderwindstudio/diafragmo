@@ -9,7 +9,7 @@
   --logo-ink: #15171c;
   --accent: #ff6a3d; --accent-2: #ff8a63; --accent-soft: #fff0ea; --accent-tint: #fffaf8; --accent-line: #ffc7b4; --accent-ink: #b8411b; --accent-on-ink: #ffb59c;
   --ok: #15803d; --ok-soft: #e8f6ec; --ok-line: #c6e8d0; --warn: #b45309; --warn-soft: #fdf3e2; --warn-ink: #7a3d06; --warn-line: #f3dcb5; --danger: #c81e1e; --danger-soft: #fdecec;
-  --info: #1d4ed8; --info-soft: #eef5fd; --info-line: #d3e4f8; --ideal-soft: #fdf0f6;
+  --info: #1d4ed8; --info-soft: #eef5fd; --info-line: #d3e4f8; --ideal-soft: #fdf0f6; --pill-bg: #eef0f3; --pill-ink: #4b5563;
   --radius: 14px; --radius-sm: 9px; --shadow: 0 1px 2px rgba(17,18,22,.05), 0 4px 16px rgba(17,18,22,.05);
   color-scheme: light;
   --banner-h: 30px;
@@ -121,7 +121,7 @@ div.kpi { cursor: default; }
 .pipe strong { font-size: 20px; }
 
 /* Status colors */
-.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 650; white-space: nowrap; background: #eef0f3; color: #4b5563; }
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 650; white-space: nowrap; background: var(--pill-bg); color: var(--pill-ink); }
 .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .st-aanvraag, .st-bg-aanvraag { background: #eef1f5; color: #475569; }
 .st-offerte, .st-bg-offerte { background: #f1ecfe; color: #6d28d9; }
@@ -729,7 +729,7 @@ html.theme-anim body, html.theme-anim #sidebar, html.theme-anim .topbar, html.th
   --logo-ink: #f6f3ee;
   --accent-soft: #33211a; --accent-tint: #241b18; --accent-line: #6e3726; --accent-ink: #ff9b79; --accent-on-ink: #c2410c;
   --ok: #5bd68a; --ok-soft: #15291e; --ok-line: #24472f; --warn: #f2a65a; --warn-soft: #2e2416; --warn-ink: #f6c27f; --warn-line: #4b3a20; --danger: #f87171; --danger-soft: #341b1d;
-  --info: #8db4ff; --info-soft: #172335; --info-line: #263b5c; --ideal-soft: #331526; --eu-ring: #1b2547;
+  --info: #8db4ff; --info-soft: #172335; --info-line: #263b5c; --ideal-soft: #331526; --eu-ring: #1b2547; --pill-bg: #262a32; --pill-ink: #b6bcc8;
   --shadow: 0 1px 2px rgba(0,0,0,.35), 0 4px 16px rgba(0,0,0,.22);
 }
 [data-theme="dark"] .proj-card:hover { box-shadow: 0 8px 22px rgba(0,0,0,.45); }
@@ -749,7 +749,6 @@ html.theme-anim body, html.theme-anim #sidebar, html.theme-anim .topbar, html.th
 /* App-icoon (donkere tegel) krijgt een rand zodat hij loskomt van donkere vlakken */
 [data-theme="dark"] .consent-app, [data-theme="dark"] .consent-app img { box-shadow: 0 0 0 1px #3a3f4a; }
 /* Statuslabels */
-[data-theme="dark"] .pill { background: #262a32; color: #b6bcc8; }
 [data-theme="dark"] .st-aanvraag, [data-theme="dark"] .st-bg-aanvraag { background: #252b35; color: #aeb9c9; }
 [data-theme="dark"] .st-offerte, [data-theme="dark"] .st-bg-offerte { background: rgba(139,92,246,.18); color: #c9b8ff; }
 [data-theme="dark"] .st-pre-productie, [data-theme="dark"] .st-bg-pre-productie, [data-theme="dark"] .inv-verstuurd { background: rgba(59,130,246,.18); color: #9cc3ff; }
