@@ -215,8 +215,8 @@
       const half = Math.round(p.budget * 1.21 * 50) / 100;
       S.finance[id] = {
         offerte: { nr: idx === 0 ? '–' : 'O2026-0' + (10 + n), bedrag: p.budget, status: idx === 0 ? 'Nog niet gemaakt' : idx === 1 ? 'Verstuurd' : 'Geaccepteerd', datum: idx === 0 ? '–' : '15 sep' },
-        aanbetaling: { nr: idx >= 2 ? 'F2026-0' + (12 + n) : '–', bedrag: half, status: idx >= 2 ? (idx >= 4 ? 'Betaald' : 'Open') : 'Nog niet verstuurd', datum: idx >= 2 ? '20 sep' : '–' },
-        eindfactuur: { nr: idx >= 6 ? 'F2026-0' + (2 + n) : '–', bedrag: half, status: idx >= 6 ? 'Betaald' : 'Na oplevering', datum: idx >= 6 ? fdateShort(p.deadline) : '–' },
+        aanbetaling: { nr: idx >= 2 ? 'F2026-' + String(idx >= 6 ? n : 12 + n).padStart(3, '0') : '–', bedrag: half, status: idx >= 2 ? (idx >= 4 ? 'Betaald' : 'Open') : 'Nog niet verstuurd', datum: idx >= 2 ? (idx >= 6 ? dayMonth(shift(-60)) : '20 sep') : '–', vervalt: idx >= 6 ? shift(-46) : '2026-10-04' },
+        eindfactuur: { nr: idx >= 6 ? 'F2026-' + String(5 + n).padStart(3, '0') : '–', bedrag: half, status: idx >= 6 ? 'Betaald' : 'Na oplevering', datum: idx >= 6 ? dayMonth(p.deadline) : '–', vervalt: shift(14) },
         freelancers: idx >= 3 ? [{ naam: 'Mark Jansen (fictief)', rol: 'Tweede camera', dagen: 1, kosten: 450 }] : [],
         overig: idx >= 4 ? [{ omschrijving: 'Muzieklicentie', kosten: 49 }] : []
       };
@@ -231,6 +231,37 @@
       };
     }
     if (!S.email.threads[id]) S.email.threads[id] = seedThread(p);
+    linkFinance(p);
+  }
+  // 0.4.4: één bron voor facturen. S.invoices is leidend; de kaarten Aanbetaling/Eindfactuur in project → Financiën
+  // lezen daar live uit. Facturen die alleen in de projectdata stonden, worden één keer naar S.invoices overgezet.
+  const dayMonth = iso => { const d = pd(iso); return isNaN(d) ? '–' : `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
+  const invSlot = i => /^eind/i.test(String(i.omschrijving || '')) ? 'eindfactuur' : 'aanbetaling';
+  const slotInvoice = (pid, w) => S.invoices.find(i => i.projectId === pid && invSlot(i) === w) || null;
+  const invDatum = d => d.datum || (d.status === 'Concept' || !d.vervalt ? '–' : dayMonth(isoAdd(d.vervalt, -14)));
+  function linkFinance(p) {
+    const f = S.finance[p.id]; if (!f || f.__linked) return;
+    Object.defineProperty(f, '__linked', { value: true });
+    ['aanbetaling', 'eindfactuur'].forEach(w => {
+      const d = f[w];
+      // Echte factuur (nummer, niet meer “nog niet verstuurd”) die nog niet in het overzicht staat: overzetten
+      if (d && d.nr && d.nr !== '–' && !slotInvoice(p.id, w) && !S.invoices.some(i => i.nr === d.nr)) {
+        S.invoices.push({ nr: d.nr, projectId: p.id, klant: p.klant, omschrijving: w === 'eindfactuur' ? 'Eindfactuur' : 'Aanbetaling 50%', bedrag: d.bedrag, vervalt: d.vervalt || isoAdd(todayIso(), 14), status: d.status, datum: d.datum });
+      }
+      // Wat overblijft is alleen de stand zónder factuur (bijv. “Na oplevering”)
+      let fallback = d && d.nr !== '–' ? { nr: '–', bedrag: d.bedrag, status: w === 'eindfactuur' ? 'Na oplevering' : 'Nog niet verstuurd', datum: '–' } : d;
+      Object.defineProperty(f, w, {
+        enumerable: true, configurable: true,
+        get: () => {
+          const inv = slotInvoice(p.id, w); if (inv) return inv;
+          // Restbedrag eindfactuur = projecttotaal incl. btw min de aanbetaling (bijv. 60% na 40% aanbetaling)
+          if (w === 'eindfactuur' && fallback && fallback.nr === '–' && p.budget) return Object.assign({}, fallback, { bedrag: Math.round((p.budget * 1.21 - f.aanbetaling.bedrag) * 100) / 100 });
+          return fallback;
+        },
+        // Een factuur zelf hoort in S.invoices; hier bewaren we alleen de stand zonder factuur
+        set: v => { fallback = v && v.nr && v.nr !== '–' ? Object.assign({}, v, { nr: '–', status: w === 'eindfactuur' ? 'Na oplevering' : 'Nog niet verstuurd', datum: '–' }) : v; }
+      });
+    });
   }
   const projectHours = id => (S.hours[id] || []).reduce((a, h) => a + Number(h.uren || 0), 0);
   const projectKm = id => (S.hours[id] || []).reduce((a, h) => a + Number(h.km || 0), 0);
@@ -570,12 +601,12 @@
   }
   function tabFinance(p) {
     const f = S.finance[p.id]; const kosten = financeCosts(p.id); const tu = projectHours(p.id);
-    const act = d => d.status === 'Open' || d.status === 'Verlopen' ? `<button class="btn sm ghost" data-action="compose" data-id="${p.id}" data-kind="herinnering" data-nr="${esc(d.nr)}">${icon('send')} Herinner</button>` : d.status === 'Verstuurd' ? `<button class="btn sm ghost" data-action="compose" data-id="${p.id}" data-kind="offerte">${icon('send')} Opnieuw sturen</button>` : d.status === 'Betaald' || d.status === 'Geaccepteerd' ? '' : `<button class="btn sm ghost" data-action="quote-for" data-id="${p.id}">Maken</button>`;
+    const act = d => d.projectId && d.status === 'Concept' ? `<button class="btn sm ghost" data-action="send-invoice" data-nr="${esc(d.nr)}">${icon('send')} Versturen</button>` : d.status === 'Open' || d.status === 'Verlopen' ? `<button class="btn sm ghost" data-action="compose" data-id="${p.id}" data-kind="herinnering" data-nr="${esc(d.nr)}">${icon('send')} Herinner</button>` : d.status === 'Verstuurd' ? `<button class="btn sm ghost" data-action="compose" data-id="${p.id}" data-kind="offerte">${icon('send')} Opnieuw sturen</button>` : d.status === 'Betaald' || d.status === 'Geaccepteerd' ? '' : `<button class="btn sm ghost" data-action="quote-for" data-id="${p.id}">Maken</button>`;
     const q = S.quotes[p.id];
-    const doc = (label, d, extra, inv) => `<div class="fin-doc card"><div class="small muted">${label}</div><div class="strong big">${eur(d.bedrag)}</div><div class="small muted">${esc(d.nr)} · ${esc(d.datum)}</div>${extra || ''}<div class="row-between">${statusPillInv(d.status)}${act(d)}</div>${inv ? tikkieStatusHtml(d.nr) + tikkieActionsHtml(d.nr, p.id, d.status) : ''}</div>`;
+    const doc = (label, d, extra, inv) => `<div class="fin-doc card"><div class="small muted">${label}</div><div class="strong big">${eur(d.bedrag)}</div><div class="small muted">${esc(d.nr)} · ${esc(invDatum(d))}</div>${extra || ''}<div class="row-between">${statusPillInv(d.status)}${act(d)}</div>${inv ? tikkieStatusHtml(d.nr) + tikkieActionsHtml(d.nr, p.id, d.status) : ''}</div>`;
     return `${quoteSignCard(p)}<div class="fin-docs">
         ${doc('Offerte (excl. btw)', f.offerte, q ? `<div class="tiny ${q.signed ? 'ok' : 'muted'}">${icon(q.signed ? 'check' : 'pen')} ${q.signed ? 'Digitaal ondertekend' : 'Wacht op handtekening'}</div>` : '')}
-        ${doc('Aanbetaling (incl. btw)', f.aanbetaling, '', true)}
+        ${doc(`${esc(f.aanbetaling.omschrijving || 'Aanbetaling')} (incl. btw)`, f.aanbetaling, '', true)}
         ${doc('Eindfactuur (incl. btw)', f.eindfactuur, '', true)}
       </div>
       <div class="grid-2 wide-left">
@@ -698,7 +729,8 @@
     return `<div class="preview-bar">${icon('eye')}<span>${label}</span><a class="btn sm" href="${backHref || '#/project/' + p.id + '/planning'}">${icon('arrowLeft')} ${backLabel || 'Terug naar Diafragmo'}</a></div>`;
   }
   function portalInvoice(p) {
-    const inv = S.invoices.find(i => i.projectId === p.id && i.status !== 'Concept');
+    const list = S.invoices.filter(i => i.projectId === p.id && i.status !== 'Concept');
+    const inv = list.find(i => i.status === 'Open' || i.status === 'Verlopen') || list.find(i => invSlot(i) === 'eindfactuur') || list[0];
     if (inv) return inv;
     const e = S.finance[p.id].eindfactuur, a = S.finance[p.id].aanbetaling;
     const d = a.status === 'Open' ? a : e;
@@ -841,7 +873,7 @@
     const docs = [
       { nr: 'O2026-021', soort: 'Offerte', klant: proj('p5').klant, bedrag: 2450, status: S.quotes.p5 ? S.quotes.p5.status : 'Verstuurd', pid: 'p5' },
       { nr: 'O2026-018', soort: 'Offerte', klant: proj('p1').klant, bedrag: 4850, status: 'Geaccepteerd', pid: 'p1' }
-    ].concat(S.invoices.map(i => ({ nr: i.nr, soort: 'Factuur', klant: i.klant, bedrag: i.bedrag, status: i.status, pid: i.projectId })));
+    ].concat(S.invoices.slice().sort((a, b) => String(b.nr).localeCompare(String(a.nr))).map(i => ({ nr: i.nr, soort: 'Factuur', klant: i.klant, bedrag: i.bedrag, status: i.status, pid: i.projectId })));
     return `
       <div class="page-head">
         <div><h1>Offertes & facturen</h1><p class="muted">Stel je offerte samen – totalen worden live berekend.</p></div>
@@ -1414,7 +1446,7 @@
   function viewNotFound() { return `<div class="empty card">${icon('search')}<h2>Pagina niet gevonden</h2><p class="muted">Deze pagina bestaat niet in het prototype.</p><a class="btn primary" href="#/dashboard">Naar dashboard</a></div>`; }
 
   // ---------- Info-menu, versie, nieuws & support (demo, bewaard in localStorage) ----------
-  const APP_VERSIE = '0.4.3', APP_BUILD = '2026-10-03';
+  const APP_VERSIE = '0.4.4', APP_BUILD = '2026-10-03';
   const NEWS_KEY = 'diafragmo-nieuws-gelezen', TICKETS_KEY = 'diafragmo-tickets';
   const versieLabel = () => `Versie ${APP_VERSIE} (prototype)`;
   const buildLabel = () => `build ${fdate(APP_BUILD)}`;
@@ -1423,6 +1455,9 @@
   const fdt = s => { const d = new Date(s); return isNaN(d) ? esc(s) : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
   const fdtShort = s => { const d = new Date(s); if (isNaN(d)) return esc(s); const n = new Date(); return d.toDateString() === n.toDateString() ? `vandaag ${p2(d.getHours())}:${p2(d.getMinutes())}` : `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
   const CHANGELOG = [
+    { v: '0.4.4', datum: '2026-10-03', items: [
+      ['check', 'Factuurstatus overal gelijk in project en overzicht', 'Kleine verbetering: de kaarten Aanbetaling en Eindfactuur in project → Financiën tonen nu precies dezelfde factuur en status als Offertes & facturen (Concept, Open, Verlopen, Betaald, ook “betaald via Tikkie” en een verstuurde Tikkie). “Tikkie sturen” staat bij elke open of verlopen factuur.']
+    ] },
     { v: '0.4.3', datum: '2026-10-03', items: [
       ['send', 'Betaalverzoek sturen via Tikkie', 'Zet Tikkie (Tikkie Zakelijk, ABN AMRO) aan bij Instellingen → Betaalmethoden. Bij open facturen stuur je dan met “Tikkie sturen” een betaalverzoek met bedrag, omschrijving en geldigheid, en deel je de link via WhatsApp, e-mail of kopiëren. Betaald? Dan staat de factuur op Betaald, met “betaald via Tikkie”. iDEAL | Wero via betaallink blijft de standaard.']
     ] },
@@ -2446,7 +2481,7 @@
     'quote-for': el => { const p = proj(el.dataset.id); S.quote = defaultQuote(p.status === 'Opgeleverd' ? 'p6' : p.id); go('#/financien'); },
     'remind': el => { const i = S.invoices.find(x => x.nr === el.dataset.nr); openCompose(draftFor(proj(i.projectId), 'herinnering', { doc: { nr: i.nr, bedrag: i.bedrag, vervalt: i.vervalt } })); },
     'remind-generic': el => toast(`Herinnering verstuurd aan ${esc(el.dataset.who)} (demo)`),
-    'send-invoice': el => { const i = S.invoices.find(x => x.nr === el.dataset.nr); openCompose(draftFor(proj(i.projectId), 'factuur', { doc: { nr: i.nr, bedrag: i.bedrag, vervalt: i.vervalt }, onSent: () => { i.status = 'Open'; } })); },
+    'send-invoice': el => { const i = S.invoices.find(x => x.nr === el.dataset.nr); openCompose(draftFor(proj(i.projectId), 'factuur', { doc: { nr: i.nr, bedrag: i.bedrag, vervalt: i.vervalt }, onSent: () => { i.status = 'Open'; i.datum = dayMonth(todayIso()); } })); },
     // E-mail
     'compose': el => { const p = proj(el.dataset.id); if (p) openCompose(draftFor(p, el.dataset.kind || 'leeg', { nr: el.dataset.nr })); },
     'reply': el => { const p = proj(el.dataset.id); const m = (S.email.threads[p.id] || [])[Number(el.dataset.i)]; if (m) openCompose(draftFor(p, 'reply', { msg: m })); },
@@ -2606,7 +2641,7 @@
           label: 'Naar mijn bank', cls: 'ideal', onClick: () => {
             const body = $('.modal-body'); if (body) body.innerHTML = `<div class="paying"><div class="spinner"></div><p>Je wordt doorgestuurd naar je bank…</p></div>`;
             $$('.modal-foot .btn').forEach(b => { b.disabled = true; });
-            const tmo = setTimeout(() => { S.portal.paidIds[id] = true; const inv = S.invoices.find(i => i.projectId === id && i.status !== 'Concept'); if (inv) inv.status = 'Betaald'; go('#/klant/' + id + '/betaald'); }, 1300);
+            const tmo = setTimeout(() => { S.portal.paidIds[id] = true; const inv = portalInvoice(proj(id)); if (inv && !inv.virtual) inv.status = 'Betaald'; go('#/klant/' + id + '/betaald'); }, 1300);
             cleanupFns.push(() => clearTimeout(tmo));
           }
         }]
@@ -2778,6 +2813,7 @@
     $$('[data-ic]').forEach(el => { el.insertAdjacentHTML('afterbegin', icon(el.dataset.ic)); });
     applyTheme(false);
     tickets(); updateInfoBadges();
+    S.projects.forEach(ensure); // 0.4.4: alle facturen staan in S.invoices (één bron voor overzicht en projecten)
     applyDemo(demoLoad(), false);
     if (!location.hash) history.replaceState(null, '', '#/dashboard');
     render();

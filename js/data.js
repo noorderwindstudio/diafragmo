@@ -28,10 +28,13 @@ window.FRAME_DATA = (function () {
     { id: 'p11', titel: 'Eventvideo Ondernemersdag', klant: 'Ondernemerskring Salland (fictief)', contact: 'Bas Kuipers', status: 'Opgeleverd', deadline: '2026-02-09', budget: 1950, type: 'Event', grad: ['#f87171', '#7f1d1d'], versie: 'v2' }
   ];
 
+  // Eén bron voor facturen (vanaf 0.4.4): het overzicht én project → Financiën lezen hieruit.
+  // Facturen van projecten zonder uitgewerkte voorbeelddata worden bij het opstarten aangevuld.
   const invoices = [
-    { nr: 'F2026-029', projectId: 'p3', klant: 'Festival Weide & Wind (fictief)', omschrijving: 'Aanbetaling 50%', bedrag: 2359.50, vervalt: '2026-09-28', status: 'Verlopen' },
-    { nr: 'F2026-031', projectId: 'p2', klant: 'Gemeente Zwolle (voorbeeld)', omschrijving: 'Aanbetaling 40%', bedrag: 3000.80, vervalt: '2026-10-09', status: 'Open' },
-    { nr: 'F2026-032', projectId: 'p1', klant: 'Bakkerij Van Dam', omschrijving: 'Eindfactuur', bedrag: 2934.25, vervalt: '2026-10-15', status: 'Open' },
+    { nr: 'F2026-024', projectId: 'p1', klant: 'Bakkerij Van Dam', omschrijving: 'Aanbetaling 50%', bedrag: 2934.25, vervalt: '2026-09-16', status: 'Betaald', datum: '2 sep' },
+    { nr: 'F2026-029', projectId: 'p3', klant: 'Festival Weide & Wind (fictief)', omschrijving: 'Aanbetaling 50%', bedrag: 2359.50, vervalt: '2026-09-28', status: 'Verlopen', datum: '14 sep' },
+    { nr: 'F2026-031', projectId: 'p2', klant: 'Gemeente Zwolle (voorbeeld)', omschrijving: 'Aanbetaling 40%', bedrag: 3000.80, vervalt: '2026-10-09', status: 'Open', datum: '25 sep' },
+    { nr: 'F2026-032', projectId: 'p1', klant: 'Bakkerij Van Dam', omschrijving: 'Eindfactuur', bedrag: 2934.25, vervalt: '2026-10-15', status: 'Open', datum: '1 okt' },
     { nr: 'F2026-033', projectId: 'p4', klant: 'Fietsatelier Hanze', omschrijving: 'Aanbetaling 30%', bedrag: 998.25, vervalt: '2026-10-20', status: 'Concept' }
   ];
 

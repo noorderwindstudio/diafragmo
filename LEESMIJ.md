@@ -13,6 +13,7 @@ Dubbelklik op `index.html` (werkt direct vanaf schijf) of start `python3 -m http
 - `#/klant/p1`: klantportaal (betalen met iDEAL | Wero, demo → `#/klant/p1/betaald`)
 - `#/klant/p5/offerte`: offerte digitaal ondertekenen (naam, handtekening, akkoord) → offerte Geaccepteerd, project naar Pre-productie, 30% aanbetalingsfactuur als concept
 - `#/financien`: offerte- en factuurbouwer met live totalen; bij open facturen (en een factuur in de bouwer) staat “Tikkie sturen” als Tikkie aan staat
+- Facturen hebben één bron (vanaf 0.4.4): de lijst in Offertes & facturen en de kaarten Aanbetaling/Eindfactuur in project → Financiën tonen dezelfde factuur, hetzelfde bedrag en dezelfde status (Concept, Open, Verlopen, Betaald, incl. Tikkie-stand)
 - `#/showreel` en `#/showreel/live`: showreel-editor en publieke pagina met aanvraagformulier
 - `#/instellingen`: abonnement (Basis €24 / Pro €39, met demo-schakelaar “bekijk als Basis / Pro”), boekhoudkoppelingen de kaart “Betaalmethoden” (`#/instellingen/betaalmethoden`) en de kaart “Account koppelen: e-mail & agenda” (`#/instellingen/email`, `#/instellingen/agenda` en `#/instellingen/koppeling` scrollen er allemaal naartoe)
 - Timer voor uren (Pro): start in de projectkop of bij Uren & km; de lopende timer staat als pil in de bovenbalk
