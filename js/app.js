@@ -33,15 +33,19 @@
     showreelSent: null,
     portal: { uploads: [{ naam: 'Logo_VanDam_2026.svg', grootte: '48 KB', klaar: true }, { naam: "Archieffoto's_1951.zip", grootte: '312 MB', klaar: true }], comments: [], paidIds: {} },
     settings: { plan: 'Pro', koppelingen: { Moneybird: true, 'e-Boekhouden': false, Jortt: false } },
+    // 0.4.1: één koppeling per aanbieder voor e-mail én agenda (los aan/uit te zetten)
+    koppeling: {
+      microsoft: { adres: 'sanne@sannedevriesvideo.nl', connected: false, sinds: null, mail: true, agenda: true },
+      google: { adres: 'sannedevriesvideo@gmail.com', connected: false, sinds: null, mail: true, agenda: true }
+    },
     email: {
-      accounts: { outlook: { adres: 'sanne@sannedevriesvideo.nl', connected: false, sinds: null }, gmail: { adres: 'sannedevriesvideo@gmail.com', connected: false, sinds: null } },
       active: null, sigOn: true, bcc: false, autoKoppel: true, tplSel: 'offerte', filter: 'Alle',
       sig: 'Sanne de Vries\nSanne de Vries Video · videoproductie in Zwolle\nsannedevries.nl',
       templates: null, threads: JSON.parse(JSON.stringify(D.emails))
     },
     timer: null,
     timerUren: [],
-    agenda: { outlook: { adres: 'sanne@sannedevriesvideo.nl', connected: false, sinds: null }, google: { adres: 'sannedevriesvideo@gmail.com', connected: false, sinds: null }, autoZet: true, checkBeschikbaar: true },
+    agenda: { autoZet: true, checkBeschikbaar: true },
     quotes: JSON.parse(JSON.stringify(D.quotes || {})),
     callsheets: JSON.parse(JSON.stringify(D.callsheets || {})),
     csSel: {},
@@ -308,7 +312,7 @@
       }
       case 'instellingen': {
         html = viewSettings();
-        const anchor = { email: '#email-settings', hosting: '#hosting-privacy', agenda: '#agenda-settings', abonnement: '#abonnement' }[r.a];
+        const anchor = { email: '#koppeling', mail: '#koppeling', agenda: '#koppeling', koppeling: '#koppeling', koppelingen: '#koppeling', hosting: '#hosting-privacy', abonnement: '#abonnement' }[r.a];
         if (anchor) mount = () => { const el = $(anchor); if (el) el.scrollIntoView(); };
         break;
       }
@@ -1011,11 +1015,17 @@
     const u = $('.browser .url'); if (u) u.innerHTML = `${icon('lock')} ${esc(S.showreel.domein || 'jouwnaam.nl')}`;
   }
 
-  // ---------- E-mail (gesimuleerde koppeling met Microsoft 365 / Outlook en Gmail) ----------
-  const PROV = {
-    outlook: { label: 'Outlook', full: 'Microsoft 365 / Outlook', sub: 'Microsoft 365, Outlook.com en Exchange', bedrijf: 'Microsoft' },
-    gmail: { label: 'Gmail', full: 'Gmail', sub: 'Gmail en Google Workspace', bedrijf: 'Google' }
+  // ---------- Koppeling e-mail & agenda (gesimuleerd): één login per aanbieder, Microsoft 365 of Google ----------
+  const ACC_KEYS = ['microsoft', 'google'];
+  const ACC = {
+    microsoft: { naam: 'Microsoft 365', sub: 'Outlook-mail + agenda', detail: 'Microsoft 365, Outlook.com en Exchange', bedrijf: 'Microsoft', mail: 'Outlook', cal: 'Outlook-agenda', logo: 'outlook', login: 'Aanmelden bij Microsoft (demo)' },
+    google: { naam: 'Google', sub: 'Gmail + Google Agenda', detail: 'Gmail, Google Agenda en Google Workspace', bedrijf: 'Google', mail: 'Gmail', cal: 'Google Agenda', logo: 'gmail', login: 'Inloggen met Google (demo)' }
   };
+  const accKey = k => ({ outlook: 'microsoft', gmail: 'google' }[k] || (ACC[k] ? k : 'microsoft')); // oude sleutels (0.4.0) blijven werken
+  const acc = k => S.koppeling[k];
+  const mailOn = k => !!(S.koppeling[k] && S.koppeling[k].connected && S.koppeling[k].mail);
+  const agendaOn = k => !!(S.koppeling[k] && S.koppeling[k].connected && S.koppeling[k].agenda);
+  const mailOffProvider = () => ACC_KEYS.find(k => acc(k).connected && !acc(k).mail) || null;
   // Eenvoudige, zelfgetekende logo's (geen officiële beeldmerken)
   const LOGO = {
     outlook: '<svg class="prov-logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="11" y="6" width="19" height="20" rx="2.5" fill="#28a8ea"/><path d="M11.5 11.5l9 6 9-6" fill="none" stroke="#fff" stroke-width="1.6" opacity=".9"/><rect x="2" y="8" width="16" height="16" rx="2.5" fill="#0a64c8"/><ellipse cx="10" cy="16" rx="3.8" ry="4.5" fill="none" stroke="#fff" stroke-width="2.4"/></svg>',
@@ -1033,15 +1043,16 @@
   const portalLink = p => `https://portaal.diafragmo.voorbeeld/${p.id}-8f3k2`;
   const fillTpl = (str, vars) => String(str).replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null && vars[k] !== '' ? vars[k] : m));
   function sender() {
-    const e = S.email;
-    if (e.active && e.accounts[e.active] && e.accounts[e.active].connected) return { k: e.active, label: PROV[e.active].label, adres: e.accounts[e.active].adres };
-    return { k: 'noreply', label: 'Diafragmo (noreply)', adres: 'noreply@diafragmo.voorbeeld' };
+    const ok = ACC_KEYS.filter(mailOn), k = ok.includes(S.email.active) ? S.email.active : ok[0];
+    if (k) return { k, label: ACC[k].mail, adres: acc(k).adres, logo: LOGO[ACC[k].logo] };
+    return { k: 'noreply', label: 'Diafragmo (noreply)', adres: 'noreply@diafragmo.voorbeeld', logo: '' };
   }
+  function fixActive() { const ok = ACC_KEYS.filter(mailOn); if (!ok.includes(S.email.active)) S.email.active = ok[0] || null; }
   function renderKeep() { const y = window.scrollY; render(); window.scrollTo(0, y); }
 
   function seedThread(p) {
     const adr = clientEmail(p); if (!adr) return [];
-    const idx = STATUSES.indexOf(p.status), v = firstName(p.contact), me = S.email.accounts.outlook.adres, f = S.finance[p.id];
+    const idx = STATUSES.indexOf(p.status), v = firstName(p.contact), me = S.koppeling.microsoft.adres, f = S.finance[p.id];
     const done = p.status === 'Opgeleverd';
     const base = done ? p.deadline : '2026-10-01';
     const out = [];
@@ -1106,9 +1117,12 @@
   }
 
   function sendAsHtml(s, inCompose) {
-    if (s.k !== 'noreply') return `<div class="send-as linked">${LOGO[s.k]}<div class="grow small"><span class="muted">Verzonden via</span> <strong>${esc(s.label)}</strong> · ${esc(s.adres)}</div><a class="link" href="#/instellingen/email">Wijzig</a></div>`;
-    return `<div class="send-as nolink"><div class="row gap">${icon('msg')}<div class="grow"><div class="strong small">Koppel je e-mail in Instellingen</div><div class="tiny">Zonder koppeling wordt dit verzonden via Diafragmo (noreply) namens ${esc(D.studio.naam)}. Antwoorden gaan naar ${esc(D.studio.email)}.</div></div></div>
-      <div class="row gap wrap send-as-btns"><a class="btn sm" href="#/instellingen/email">${icon('settings')} Koppel je e-mail</a>${inCompose ? `<button type="button" class="btn sm ghost" data-action="compose-connect" data-k="outlook">${LOGO.outlook} Outlook</button><button type="button" class="btn sm ghost" data-action="compose-connect" data-k="gmail">${LOGO.gmail} Gmail</button>` : ''}</div></div>`;
+    if (s.k !== 'noreply') return `<div class="send-as linked">${s.logo}<div class="grow small"><span class="muted">Verzonden via</span> <strong>${esc(s.label)}</strong> · ${esc(s.adres)}</div><a class="link" href="#/instellingen/email">Wijzig</a></div>`;
+    const off = mailOffProvider();
+    if (off) return `<div class="send-as nolink"><div class="row gap">${icon('msg')}<div class="grow"><div class="strong small">E-mail staat uit bij je ${esc(ACC[off].naam)}-koppeling</div><div class="tiny">Je account is gekoppeld, maar E-mail staat uit. Nu wordt dit verzonden via Diafragmo (noreply) namens ${esc(D.studio.naam)}. Zet E-mail aan om vanaf ${esc(acc(off).adres)} te versturen.</div></div></div>
+      <div class="row gap wrap send-as-btns"><button type="button" class="btn sm" data-action="mail-enable" data-k="${off}">${LOGO[ACC[off].logo]} E-mail aanzetten</button><a class="btn sm ghost" href="#/instellingen/email">${icon('settings')} Instellingen</a></div></div>`;
+    return `<div class="send-as nolink"><div class="row gap">${icon('msg')}<div class="grow"><div class="strong small">Koppel je e-mail in Instellingen</div><div class="tiny">Eén koppeling met Microsoft 365 of Google regelt e-mail én agenda. Zonder koppeling wordt dit verzonden via Diafragmo (noreply) namens ${esc(D.studio.naam)}. Antwoorden gaan naar ${esc(D.studio.email)}.</div></div></div>
+      <div class="row gap wrap send-as-btns"><a class="btn sm" href="#/instellingen/email">${icon('settings')} Koppel je e-mail</a>${inCompose ? ACC_KEYS.map(k => `<button type="button" class="btn sm ghost" data-action="compose-connect" data-k="${k}">${LOGO[ACC[k].logo]} ${esc(ACC[k].naam)}</button>`).join('') : ''}</div></div>`;
   }
   const attHtml = att => att.map((a, i) => `<span class="att-chip">${icon('file')}<span class="att-name">${esc(a.naam)}</span><small>${esc(a.grootte)}</small><button type="button" class="att-x" data-action="cmp-del-att" data-i="${i}" aria-label="Bijlage ${esc(a.naam)} verwijderen">${icon('x')}</button></span>`).join('') +
     `<button type="button" class="chip" data-action="cmp-add-att">${icon('plus')} Bijlage</button>`;
@@ -1160,34 +1174,52 @@
     renderKeep();
   }
 
+  // Eén toestemmingsscherm per aanbieder voor e-mail én agenda
   function openConsent(k, after) {
-    const a = S.email.accounts[k], pr = PROV[k];
+    k = accKey(k);
+    const a = acc(k), pr = ACC[k];
     modal({
-      title: k === 'outlook' ? 'Aanmelden bij Microsoft (demo)' : 'Inloggen met Google (demo)',
+      title: pr.login,
       body: `<div class="consent">
-        <div class="consent-logos"><span class="consent-app"><img src="img/app-icoon.svg" alt="Diafragmo" style="width:52px;height:52px;border-radius:14px;display:block"></span><span class="consent-dots"><i></i><i></i><i></i></span><span class="consent-prov">${LOGO[k]}</span></div>
+        <div class="consent-logos"><span class="consent-app"><img src="img/app-icoon.svg" alt="Diafragmo" style="width:52px;height:52px;border-radius:14px;display:block"></span><span class="consent-dots"><i></i><i></i><i></i></span><span class="consent-prov duo" title="${esc(pr.mail)} en ${esc(pr.cal)}">${LOGO[pr.logo]}${CAL_LOGO[k]}</span></div>
         <div class="consent-acct"><span class="avatar sm">SV</span><div class="grow"><div class="strong small">Sanne de Vries</div><div class="tiny muted">${esc(a.adres)}</div></div><span class="tiny muted">${esc(pr.bedrijf)}-account</span></div>
-        <p class="consent-q"><strong>Diafragmo</strong> wil:</p>
+        <p class="consent-q"><strong>Diafragmo</strong> wil toegang tot je e-mail én agenda:</p>
         <ul class="perm-list">
           <li>${icon('send')}<div><div class="strong">E-mail verzenden namens jou</div><div class="tiny muted">Offertes, facturen en herinneringen gaan vanaf ${esc(a.adres)} en staan ook in je eigen map Verzonden.</div></div></li>
           <li>${icon('msg')}<div><div class="strong">Berichten met klanten lezen die bij projecten horen</div><div class="tiny muted">Alleen mail van en naar adressen van je klanten. Je overige mail blijft privé.</div></div></li>
+          <li>${icon('clock')}<div><div class="strong">Agenda lezen om beschikbaarheid te checken</div><div class="tiny muted">Alleen vrij/bezet, zodat je bij het plannen dubbele boekingen ziet. De inhoud van je afspraken blijft privé.</div></div></li>
+          <li>${icon('calendar')}<div><div class="strong">Opnamedagen en deadlines in je agenda zetten</div><div class="tiny muted">In een aparte agenda ‘Diafragmo’ in je ${esc(pr.cal)}, met locatie en call time. Wijzigingen worden automatisch bijgewerkt.</div></div></li>
         </ul>
-        <p class="tiny muted">Je kunt deze toegang altijd intrekken in Instellingen of in je ${esc(pr.bedrijf)}-account. Demo: er wordt niet echt ingelogd en er wordt niets opgeslagen.</p>
+        <p class="tiny muted">Eén keer inloggen is genoeg: daarna werken e-mail en agenda allebei. In Instellingen zet je E-mail of Agenda los aan of uit, en je kunt de toegang altijd intrekken in Diafragmo of in je ${esc(pr.bedrijf)}-account. Demo: er wordt niet echt ingelogd.</p>
       </div>`,
       actions: [{ label: 'Annuleren', cls: 'ghost', onClick: () => { if (after) after(false); else closeModal(); } }, {
         label: 'Toestaan', cls: 'primary', onClick: () => {
-          const body = $('.modal-body'); if (body) body.innerHTML = `<div class="paying"><div class="spinner blue"></div><p>Verbinden met ${esc(pr.label)}…</p></div>`;
+          const body = $('.modal-body'); if (body) body.innerHTML = `<div class="paying"><div class="spinner blue"></div><p>Verbinden met ${esc(pr.naam)}…</p></div>`;
           $$('.modal-foot .btn').forEach(b => { b.disabled = true; });
           const tmo = setTimeout(() => {
-            a.connected = true; a.sinds = nowLabel();
-            if (!S.email.active || !S.email.accounts[S.email.active].connected) S.email.active = k;
-            toast(`${esc(pr.label)} gekoppeld: ${esc(a.adres)} (demo)`);
+            Object.assign(a, { connected: true, sinds: nowLabel(), mail: true, agenda: true });
+            // Diafragmo zet je planning in één agenda tegelijk: de nieuwste koppeling neemt de agenda over
+            const other = ACC_KEYS.find(x => x !== k && agendaOn(x)); if (other) acc(other).agenda = false;
+            fixActive(); demoSave();
+            const n = weekItems(todayIso(), isoAdd(todayIso(), 60)).filter(x => x.kind !== 'busy').length;
+            toast(`${esc(pr.naam)} gekoppeld (demo): e-mail via ${esc(a.adres)} · ${n} opnamedagen en deadlines in je ${esc(pr.cal)}${other ? ` · agenda van ${esc(ACC[other].naam)} uitgezet` : ''}`);
             if (after) after(true); else { closeModal(); renderKeep(); }
           }, 900);
           cleanupFns.push(() => clearTimeout(tmo));
         }
       }]
     });
+  }
+  function setMail(k, on) {
+    acc(k).mail = !!on; fixActive();
+    if (on && !mailOn(S.email.active)) S.email.active = k;
+    demoSave();
+  }
+  function setAgenda(k, on) {
+    acc(k).agenda = !!on;
+    let other = null;
+    if (on) { other = ACC_KEYS.find(x => x !== k && agendaOn(x)) || null; if (other) acc(other).agenda = false; }
+    demoSave(); return other;
   }
 
   // Projecttab E-mail
@@ -1216,7 +1248,9 @@
     const list = all.filter(m => flt === 'Alle' || (flt === 'Ontvangen' ? m.dir === 'in' : m.dir === 'out'));
     const s = sender(), adrs = clientEmailsOf(p);
     const quick = [['offerte', 'file', 'Offerte'], ['factuur', 'euro', 'Factuur'], ['herinnering', 'clock', 'Betaalherinnering'], ['oplevering', 'check', 'Oplevering']];
-    return `${s.k === 'noreply' ? `<div class="banner warn">${icon('msg')}<div class="grow small">Koppel je e-mail om berichten met ${esc(p.contact)} automatisch hier te zien en vanaf je eigen adres te versturen. <span class="muted">Hieronder zie je voorbeelddata.</span></div><a class="btn sm" href="#/instellingen/email">Koppel e-mail</a></div>` : ''}
+    const off = s.k === 'noreply' ? mailOffProvider() : null;
+    return `${off ? `<div class="banner warn">${icon('msg')}<div class="grow small">E-mail staat uit bij je ${esc(ACC[off].naam)}-koppeling. Zet het aan om berichten met ${esc(p.contact)} automatisch hier te zien en vanaf ${esc(acc(off).adres)} te versturen. <span class="muted">Hieronder zie je voorbeelddata.</span></div><button class="btn sm" data-action="mail-enable" data-k="${off}">E-mail aanzetten</button></div>`
+      : s.k === 'noreply' ? `<div class="banner warn">${icon('msg')}<div class="grow small">Koppel je e-mail om berichten met ${esc(p.contact)} automatisch hier te zien en vanaf je eigen adres te versturen. <span class="muted">Hieronder zie je voorbeelddata.</span></div><a class="btn sm" href="#/instellingen/email">Koppel e-mail</a></div>` : ''}
       <div class="grid-2 wide-left">
         <section class="card">
           <div class="card-head"><h2>E-mail met ${esc(p.contact)}</h2><div class="row gap wrap"><div class="seg sm">${['Alle', 'Ontvangen', 'Verzonden'].map(x => `<button class="${flt === x ? 'active' : ''}" data-action="mail-filter" data-f="${x}">${x}</button>`).join('')}</div><button class="btn sm primary" data-action="compose" data-id="${p.id}" data-kind="leeg">${icon('plus')} Nieuwe e-mail</button></div></div>
@@ -1229,33 +1263,45 @@
           ${sendAsHtml(s, false)}
           <div class="card-head mt"><h2>Snel versturen</h2></div>
           <div class="quick-mails">${quick.map(q => `<button class="btn sm" data-action="compose" data-id="${p.id}" data-kind="${q[0]}">${icon(q[1])} ${q[2]}</button>`).join('')}</div>
-          <p class="tiny muted">Sjablonen pas je aan in <a class="link" href="#/instellingen/email">Instellingen → E-mail</a>.</p>
+          <p class="tiny muted">Sjablonen pas je aan in <a class="link" href="#/instellingen/email">Instellingen → E-mail & agenda</a>.</p>
         </section>
       </div>`;
   }
 
-  // Instellingen → E-mail
-  function providerCard(k) {
-    const a = S.email.accounts[k], active = S.email.active === k, pr = PROV[k];
-    return `<div class="provider ${a.connected ? 'connected' : ''} ${active && a.connected ? 'active' : ''}">
-      <div class="prov-head"><span class="prov-logo-box">${LOGO[k]}</span><div class="grow"><div class="strong">${esc(pr.full)}</div><div class="small muted">${esc(pr.sub)}</div></div>${a.connected ? '<span class="pill inv-betaald">Gekoppeld</span>' : '<span class="pill">Niet gekoppeld</span>'}</div>
+  // Instellingen → Account koppelen: e-mail & agenda (één kaart, één login per aanbieder)
+  function accCard(k) {
+    const a = acc(k), pr = ACC[k], s = sender(), sending = s.k === k, cal = calProvider() === k;
+    const multi = ACC_KEYS.filter(mailOn).length > 1;
+    const tg = (w, ic, title, sub) => `<li class="acc-tg ${a[w] ? 'on' : 'off'}"><span class="acc-tg-ic">${icon(ic)}</span><div class="grow"><div class="strong small">${title}</div><div class="tiny muted">${sub}</div></div><label class="switch"><input type="checkbox" data-action="acc-toggle" data-k="${k}" data-w="${w}" ${a[w] ? 'checked' : ''} aria-label="${esc(title)} via ${esc(pr.naam)}"><span></span></label></li>`;
+    return `<div class="provider acc ${a.connected ? 'connected' : ''} ${a.connected && (sending || cal) ? 'active' : ''}" id="koppeling-${k}">
+      <div class="prov-head"><span class="prov-logo-box duo">${LOGO[pr.logo]}${CAL_LOGO[k]}</span><div class="grow"><div class="strong">${esc(pr.naam)}</div><div class="small muted">${esc(pr.sub)}</div></div>${a.connected ? '<span class="pill inv-betaald">Gekoppeld</span>' : '<span class="pill">Niet gekoppeld</span>'}</div>
       ${a.connected ? `
-        <div class="prov-acct"><span class="avatar sm">SV</span><div class="grow"><div class="strong small">${esc(a.adres)}</div><div class="tiny muted">Gekoppeld op ${esc(a.sinds)} · laatst gesynchroniseerd: zojuist</div></div></div>
-        <div class="row-between wrap"><label class="check radio"><input type="radio" name="email-active" data-action="email-active" data-k="${k}" ${active ? 'checked' : ''}> ${active ? '<strong>Actief verzendaccount</strong>' : 'Gebruik als verzendaccount'}</label><button class="btn sm ghost" data-action="email-disconnect" data-k="${k}">Ontkoppelen</button></div>`
-        : `<p class="small muted">Verstuur vanaf je eigen ${esc(pr.label)}-adres en zie mail met klanten bij je projecten.</p><button class="btn primary" data-action="email-connect" data-k="${k}">${icon('link')} Koppelen</button>`}
+        <div class="prov-acct"><span class="avatar sm">SV</span><div class="grow"><div class="strong small">${esc(a.adres)}</div><div class="tiny muted">Gekoppeld op ${esc(a.sinds)} · één login voor e-mail en agenda</div></div></div>
+        <ul class="acc-tgs">
+          ${tg('mail', 'send', 'E-mail', a.mail ? `${esc(pr.mail)}: verzenden vanaf je eigen adres · mail met klanten bij je projecten` : 'Uit · mail gaat via Diafragmo (noreply)')}
+          ${a.mail && multi ? `<li class="acc-sub"><label class="check radio"><input type="radio" name="email-active" data-action="email-active" data-k="${k}" ${sending ? 'checked' : ''}> ${sending ? '<strong>Actief verzendaccount</strong>' : 'Gebruik als verzendaccount'}</label></li>` : ''}
+          ${tg('agenda', 'calendar', 'Agenda', a.agenda ? `${esc(pr.cal)}: opnamedagen en deadlines in je agenda · vrij/bezet bij plannen` : 'Uit · geen agenda-sync en geen vrij/bezet')}
+        </ul>
+        <div class="row-between wrap acc-foot"><span class="tiny muted">Ontkoppelen stopt e-mail én agenda.</span><button class="btn sm ghost" data-action="acc-disconnect" data-k="${k}">Ontkoppelen</button></div>`
+        : `<p class="small muted">Log één keer in met je ${esc(pr.bedrijf)}-account: ${esc(pr.mail)} voor je e-mail en ${esc(pr.cal)} voor je planning.</p><p class="tiny muted">${esc(pr.detail)}</p><button class="btn primary" data-action="acc-connect" data-k="${k}">${icon('link')} Koppelen</button>`}
     </div>`;
   }
-  function emailSettingsHtml() {
-    const e = S.email, s = sender(), t = e.templates[e.tplSel];
-    const opt = (k, title, sub) => `<li class="row-item"><div class="grow"><div class="strong">${title}</div><div class="small muted">${sub}</div></div><label class="switch"><input type="checkbox" data-action="email-opt" data-k="${k}" ${e[k] ? 'checked' : ''} aria-label="${esc(title)}"><span></span></label></li>`;
-    return `<section class="card email-settings" id="email-settings">
-      <div class="card-head"><div><h2>E-mail</h2><p class="small muted">Verstuur offertes, facturen en herinneringen vanaf je eigen adres. Mail met klanten verschijnt automatisch bij het juiste project.</p></div>
-        ${s.k !== 'noreply' ? `<span class="send-pill">${LOGO[s.k]} Verzenden via ${esc(s.label)}</span>` : '<span class="pill inv-open">Nog niet gekoppeld</span>'}</div>
-      <div class="providers">${['outlook', 'gmail'].map(providerCard).join('')}</div>
-      ${s.k === 'noreply' ? `<p class="small muted">Zonder koppeling gaan mails via Diafragmo (noreply) en komen antwoorden binnen op ${esc(D.studio.email)}.</p>` : `<p class="tiny muted">Er kan één verzendaccount actief zijn. ${e.accounts.outlook.connected && e.accounts.gmail.connected ? 'Kies hierboven welk account je gebruikt.' : ''}</p>`}
-      <div class="email-opts">
+  function koppelingSettingsHtml() {
+    const e = S.email, s = sender(), t = e.templates[e.tplSel], k = calProvider(), ag = S.agenda;
+    const anyConn = ACC_KEYS.some(x => acc(x).connected), off = s.k === 'noreply' ? mailOffProvider() : null;
+    const opt = (key, title, sub) => `<li class="row-item"><div class="grow"><div class="strong">${title}</div><div class="small muted">${sub}</div></div><label class="switch"><input type="checkbox" data-action="email-opt" data-k="${key}" ${e[key] ? 'checked' : ''} aria-label="${esc(title)}"><span></span></label></li>`;
+    const copt = (key, title, sub) => `<li class="row-item"><div class="grow"><div class="strong">${title}</div><div class="small muted">${sub}</div></div><label class="switch ${k ? '' : 'off'}"><input type="checkbox" data-action="cal-opt" data-k="${key}" ${ag[key] ? 'checked' : ''} ${k ? '' : 'disabled'} aria-label="${esc(title)}"><span></span></label></li>`;
+    const nxt = weekItems(todayIso(), isoAdd(todayIso(), 30)).filter(x => x.kind !== 'busy').slice(0, 4);
+    return `<section class="card email-settings koppeling-settings" id="koppeling" aria-labelledby="koppeling-title">
+      <div class="card-head"><div><div class="kop-eyebrow">Microsoft 365 & Google</div><h2 id="koppeling-title">Account koppelen: e-mail & agenda</h2><p class="small muted">Eén keer inloggen, dan werken e-mail en agenda allebei. Je verstuurt offertes en facturen vanaf je eigen adres, mail met klanten verschijnt bij het juiste project, en opnamedagen en deadlines komen in je agenda – met vrij/bezet bij het plannen.</p></div>
+        <div class="kop-status">${s.k !== 'noreply' ? `<span class="send-pill">${s.logo} E-mail via ${esc(s.label)}</span>` : ''}${k ? `<span class="send-pill">${CAL_LOGO[k]} Agenda: ${esc(CAL[k].label)}</span>` : ''}${!anyConn ? '<span class="pill inv-open">Nog niet gekoppeld</span>' : ''}</div></div>
+      <div class="providers">${ACC_KEYS.map(accCard).join('')}</div>
+      ${!anyConn ? `<p class="small muted">Kies Microsoft 365 of Google. Zonder koppeling gaan mails via Diafragmo (noreply) en komen antwoorden binnen op ${esc(D.studio.email)}.</p>`
+        : off ? `<p class="small muted">E-mail staat uit: mails gaan via Diafragmo (noreply) en antwoorden komen binnen op ${esc(D.studio.email)}.</p>`
+        : `<p class="tiny muted">E-mail en Agenda staan na het koppelen allebei aan; zet ze per account los uit. Er kan één verzendaccount en één agenda tegelijk actief zijn.</p>`}
+      <div class="email-opts" id="koppeling-email">
         <div>
-          <h3>Verzendopties</h3>
+          <h3 class="kop-h3">${icon('send')} E-mail · verzendopties</h3>
           <ul class="list">
             ${opt('sigOn', 'E-mailhandtekening', 'Onder elke mail die je vanuit Diafragmo verstuurt')}
             ${opt('bcc', 'BCC naar mezelf', 'Ontvang een kopie van elke verstuurde mail')}
@@ -1265,7 +1311,7 @@
         </div>
         <div>
           <h3>Sjablonen</h3>
-          <div class="seg sm tpl-seg">${TPL_KEYS.map(k => `<button class="${k === e.tplSel ? 'active' : ''}" data-action="tpl-sel" data-k="${k}">${esc(e.templates[k].naam)}</button>`).join('')}</div>
+          <div class="seg sm tpl-seg">${TPL_KEYS.map(x => `<button class="${x === e.tplSel ? 'active' : ''}" data-action="tpl-sel" data-k="${x}">${esc(e.templates[x].naam)}</button>`).join('')}</div>
           <div class="form-col tpl-form">
             <label>Onderwerp<input data-tpl-f="onderwerp" value="${esc(t.onderwerp)}"></label>
             <label>Bericht<textarea data-tpl-f="body" rows="9">${esc(t.body)}</textarea></label>
@@ -1273,6 +1319,15 @@
           <div class="ph-chips"><span class="tiny muted">Invoegen:</span>${PLACEHOLDERS.map(x => `<button class="chip ph" data-action="tpl-insert" data-ph="${x}">${x}</button>`).join('')}</div>
           <div class="row gap wrap tpl-actions"><button class="btn sm ghost" data-action="tpl-reset">Standaardtekst herstellen</button><button class="btn sm" data-action="tpl-preview">${icon('eye')} Voorbeeld met Bakkerij Van Dam</button></div>
         </div>
+      </div>
+      <div class="email-opts cal-opts" id="koppeling-agenda">
+        <div><h3 class="kop-h3">${icon('calendar')} Agenda · opties</h3><ul class="list">
+          ${copt('autoZet', 'Opnamedagen en deadlines automatisch in je agenda zetten', 'In een aparte agenda ‘Diafragmo’, inclusief locatie en call time')}
+          ${copt('checkBeschikbaar', 'Beschikbaarheid checken bij plannen', 'Toont “vrij / bezet” bij het kiezen van een datum')}
+        </ul>${k ? '' : `<p class="tiny muted">${anyConn ? 'Zet Agenda aan bij je gekoppelde account om deze opties te gebruiken.' : 'Koppel eerst Microsoft 365 of Google om deze opties te gebruiken.'}</p>`}</div>
+        <div><h3>Komt in je agenda</h3>
+          <ul class="cal-preview">${nxt.map(x => `<li><span class="wk-dot ${x.kind}"></span><span class="grow"><span class="strong small">${esc(x.titel)}</span><span class="tiny muted"> · ${fdateShort(x.datum)}${x.tijd ? ' · ' + esc(x.tijd) : ''}</span></span>${k && ag.autoZet ? `<span class="ok" title="Staat in je agenda">${icon('check')}</span>` : ''}</li>`).join('') || '<li class="muted small">Niets gepland in de komende 30 dagen.</li>'}</ul>
+          <p class="tiny muted">Van je eigen afspraken ziet Diafragmo alleen of je vrij of bezet bent – niet wat erin staat.</p></div>
       </div>
     </section>`;
   }
@@ -1345,13 +1400,12 @@
           <span class="tiny muted">Je klanten zien in hun klantportaal: “Veilig gedeeld · gehost in de EU”.</span>
         </div>
       </section>
-      ${emailSettingsHtml()}
-      ${agendaSettingsHtml()}`;
+      ${koppelingSettingsHtml()}`;
   }
   function viewNotFound() { return `<div class="empty card">${icon('search')}<h2>Pagina niet gevonden</h2><p class="muted">Deze pagina bestaat niet in het prototype.</p><a class="btn primary" href="#/dashboard">Naar dashboard</a></div>`; }
 
   // ---------- Info-menu, versie, nieuws & support (demo, bewaard in localStorage) ----------
-  const APP_VERSIE = '0.4.0', APP_BUILD = '2026-10-03';
+  const APP_VERSIE = '0.4.1', APP_BUILD = '2026-10-03';
   const NEWS_KEY = 'diafragmo-nieuws-gelezen', TICKETS_KEY = 'diafragmo-tickets';
   const versieLabel = () => `Versie ${APP_VERSIE} (prototype)`;
   const buildLabel = () => `build ${fdate(APP_BUILD)}`;
@@ -1360,6 +1414,9 @@
   const fdt = s => { const d = new Date(s); return isNaN(d) ? esc(s) : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
   const fdtShort = s => { const d = new Date(s); if (isNaN(d)) return esc(s); const n = new Date(); return d.toDateString() === n.toDateString() ? `vandaag ${p2(d.getHours())}:${p2(d.getMinutes())}` : `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
   const CHANGELOG = [
+    { v: '0.4.1', datum: '2026-10-03', items: [
+      ['link', 'E-mail en agenda nu in één koppeling (Microsoft 365 of Google)', 'Eén keer inloggen en één toestemmingsscherm: daarna werken e-mail en agenda allebei. Per account zet je E-mail en Agenda los aan of uit; ontkoppelen stopt beide. Bestaande koppelingen zijn automatisch overgezet.']
+    ] },
     { v: '0.4.0', datum: '2026-10-03', items: [
       ['pen', 'Offertes digitaal laten ondertekenen', 'Je klant tekent de offerte in het klantportaal met naam en handtekening. Het project gaat automatisch naar Pre-productie en de aanbetalingsfactuur (30%) staat als concept klaar.'],
       ['calendar', 'Callsheet per opnamedag', 'Locatie en parkeren, call time, tijdsplanning, crew en freelancers, contactpersoon, shotlist en notities op één blad. Deel het met crew en klant of download als PDF.'],
@@ -1611,13 +1668,18 @@
   function demoSave() {
     const signed = {}; Object.keys(S.quotes).forEach(k => { if (S.quotes[k].signed) signed[k] = S.quotes[k].signed; });
     const shots = {}; Object.keys(D.shotlist).forEach(k => { if (S.shotlist[k]) shots[k] = S.shotlist[k].map(x => !!x.klaar); });
-    const o = { plan: S.settings.plan, agenda: S.agenda, timer: S.timer, timerUren: S.timerUren, signed, callsheets: S.callsheets, subs: S.subs, shots };
+    const kp = { active: S.email.active }; ACC_KEYS.forEach(k => { kp[k] = Object.assign({}, S.koppeling[k]); });
+    const o = { plan: S.settings.plan, agenda: { autoZet: S.agenda.autoZet, checkBeschikbaar: S.agenda.checkBeschikbaar }, koppeling: kp, timer: S.timer, timerUren: S.timerUren, signed, callsheets: S.callsheets, subs: S.subs, shots };
     try { localStorage.setItem(DEMO_KEY, JSON.stringify(o)); } catch (e) { /* privémodus: alleen in geheugen */ }
   }
   function applyDemo(o, live) {
+    let migrated = false;
     if (o.plan === 'Basis' || o.plan === 'Pro') S.settings.plan = o.plan;
-    if (o.agenda) ['outlook', 'google'].forEach(k => { if (o.agenda[k]) Object.assign(S.agenda[k], o.agenda[k]); });
     if (o.agenda) ['autoZet', 'checkBeschikbaar'].forEach(k => { if (typeof o.agenda[k] === 'boolean') S.agenda[k] = o.agenda[k]; });
+    if (o.koppeling && typeof o.koppeling === 'object') {
+      ACC_KEYS.forEach(k => { const x = o.koppeling[k]; if (x && typeof x === 'object') ['connected', 'sinds', 'mail', 'agenda'].forEach(f => { if (x[f] !== undefined) S.koppeling[k][f] = f === 'sinds' ? x[f] : !!x[f]; }); });
+      S.email.active = ACC_KEYS.includes(o.koppeling.active) ? o.koppeling.active : S.email.active; fixActive();
+    } else if (migrateKoppeling(o)) { fixActive(); migrated = true; }
     S.timer = o.timer && o.timer.pid && proj(o.timer.pid) && o.timer.start ? o.timer : null;
     (o.timerUren || []).forEach(u => {
       if (S.timerUren.some(x => x.id === u.id)) return; const p = proj(u.pid); if (!p) return; ensure(p);
@@ -1627,6 +1689,25 @@
     if (o.callsheets && typeof o.callsheets === 'object') S.callsheets = o.callsheets;
     if (o.subs && typeof o.subs === 'object') S.subs = o.subs;
     Object.keys(o.shots || {}).forEach(k => { const sl = S.shotlist[k]; if (sl && Array.isArray(o.shots[k])) sl.forEach((x, i) => { if (i < o.shots[k].length) x.klaar = !!o.shots[k][i]; }); });
+    if (migrated) { demoSave(); if (!live) S.migratedKoppeling = true; } // pas opslaan als alle demo-status is ingelezen
+  }
+
+  // Migratie 0.4.0 → 0.4.1: losse e-mail- en agendakoppelingen worden één koppeling per aanbieder.
+  // Was e-mail of agenda gekoppeld, dan is de aanbieder gekoppeld met precies die schakelaar(s) aan.
+  function migrateKoppeling(o) {
+    const cal = o.agenda || {}, mail = (o.email && o.email.accounts) || {};
+    let any = false;
+    [['microsoft', 'outlook', 'outlook'], ['google', 'google', 'gmail']].forEach(m => {
+      const k = m[0], c = cal[m[1]], e = mail[m[2]], cOn = !!(c && c.connected), eOn = !!(e && e.connected);
+      if (!cOn && !eOn) return;
+      any = true;
+      Object.assign(S.koppeling[k], { connected: true, sinds: (cOn && c.sinds) || (eOn && e.sinds) || nowLabel(), mail: eOn, agenda: cOn });
+    });
+    if (any) {
+      const both = ACC_KEYS.filter(agendaOn); if (both.length > 1) acc(both[1]).agenda = false; // één agenda tegelijk
+      const act = o.email && accKey(o.email.active || ''); if (act && mailOn(act)) S.email.active = act;
+    }
+    return any;
   }
 
   // ---------- Pro-functies (timer, ondertiteling) ----------
@@ -2028,14 +2109,15 @@
 
   // ---------- Agenda-koppeling (Outlook / Google Agenda, gesimuleerd) ----------
   const CAL = {
-    outlook: { label: 'Outlook-agenda', full: 'Outlook-agenda', sub: 'Microsoft 365, Outlook.com en Exchange', bedrijf: 'Microsoft' },
+    microsoft: { label: 'Outlook-agenda', full: 'Outlook-agenda', sub: 'Microsoft 365, Outlook.com en Exchange', bedrijf: 'Microsoft' },
     google: { label: 'Google Agenda', full: 'Google Agenda', sub: 'Google Agenda en Google Workspace', bedrijf: 'Google' }
   };
   const CAL_LOGO = {
-    outlook: '<svg class="prov-logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="6" width="26" height="23" rx="3" fill="#0a64c8"/><path d="M3 9a3 3 0 0 1 3-3h20a3 3 0 0 1 3 3v3H3z" fill="#28a8ea"/><g fill="#fff"><rect x="7.5" y="15" width="4" height="3.2" rx=".7"/><rect x="14" y="15" width="4" height="3.2" rx=".7"/><rect x="20.5" y="15" width="4" height="3.2" rx=".7"/><rect x="7.5" y="21" width="4" height="3.2" rx=".7"/><rect x="14" y="21" width="4" height="3.2" rx=".7"/></g><rect x="9" y="3" width="2.6" height="6" rx="1.3" fill="#0a3f80"/><rect x="20.4" y="3" width="2.6" height="6" rx="1.3" fill="#0a3f80"/></svg>',
+    microsoft: '<svg class="prov-logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="6" width="26" height="23" rx="3" fill="#0a64c8"/><path d="M3 9a3 3 0 0 1 3-3h20a3 3 0 0 1 3 3v3H3z" fill="#28a8ea"/><g fill="#fff"><rect x="7.5" y="15" width="4" height="3.2" rx=".7"/><rect x="14" y="15" width="4" height="3.2" rx=".7"/><rect x="20.5" y="15" width="4" height="3.2" rx=".7"/><rect x="7.5" y="21" width="4" height="3.2" rx=".7"/><rect x="14" y="21" width="4" height="3.2" rx=".7"/></g><rect x="9" y="3" width="2.6" height="6" rx="1.3" fill="#0a3f80"/><rect x="20.4" y="3" width="2.6" height="6" rx="1.3" fill="#0a3f80"/></svg>',
     google: '<svg class="prov-logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="4" y="4" width="24" height="24" rx="4" fill="#fff"/><path d="M8 4h16a4 4 0 0 1 4 4v3H4V8a4 4 0 0 1 4-4z" fill="#4285f4"/><path d="M28 11v13a4 4 0 0 1-4 4h-2V11z" fill="#fbbc04"/><path d="M4 24V11h3v17a4 4 0 0 1-3-4z" fill="#34a853"/><path d="M7 28h15v-3H7z" fill="#34a853"/><text x="15" y="23.5" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5" font-weight="700" fill="#1a73e8">31</text></svg>'
   };
-  const calProvider = () => S.agenda.outlook.connected ? 'outlook' : S.agenda.google.connected ? 'google' : null;
+  // Agenda volgt de gecombineerde koppeling: alleen een gekoppeld account met Agenda aan telt
+  const calProvider = () => ACC_KEYS.find(agendaOn) || null;
   function calBusy(iso, skipPid) {
     const r = [];
     if (!iso) return r;
@@ -2048,63 +2130,6 @@
     if (!iso) return `<span class="cal-hint" data-cal-hint>${icon('calendar')} Kies een datum om je agenda te checken</span>`;
     const b = calBusy(iso, skipPid);
     return `<span class="cal-hint ${b.length ? 'busy' : 'free'}" data-cal-hint title="${esc(b.join(' · '))}"><i></i>Je agenda: <strong>${b.length ? 'bezet' : 'vrij'}</strong> op ${fdateShort(iso)}${b.length ? ' · ' + esc(b[0]) : ''} <em>(demo)</em></span>`;
-  }
-  function calProviderCard(k) {
-    const a = S.agenda[k], pr = CAL[k];
-    return `<div class="provider ${a.connected ? 'connected active' : ''}">
-      <div class="prov-head"><span class="prov-logo-box">${CAL_LOGO[k]}</span><div class="grow"><div class="strong">${esc(pr.full)}</div><div class="small muted">${esc(pr.sub)}</div></div>${a.connected ? '<span class="pill inv-betaald">Gekoppeld</span>' : '<span class="pill">Niet gekoppeld</span>'}</div>
-      ${a.connected ? `<div class="prov-acct"><span class="avatar sm">SV</span><div class="grow"><div class="strong small">${esc(a.adres)}</div><div class="tiny muted">Gekoppeld op ${esc(a.sinds)} · agenda ‘Diafragmo’ aangemaakt</div></div></div>
-        <div class="row-between wrap"><span class="small muted">${icon('check')} Synchroniseert automatisch</span><button class="btn sm ghost" data-action="cal-disconnect" data-k="${k}">Ontkoppelen</button></div>`
-        : `<p class="small muted">Zet je opnamedagen en deadlines in je ${esc(pr.label)} en zie meteen of je vrij bent.</p><button class="btn primary" data-action="cal-connect" data-k="${k}">${icon('link')} Koppelen</button>`}
-    </div>`;
-  }
-  function agendaSettingsHtml() {
-    const k = calProvider(), ag = S.agenda;
-    const opt = (key, title, sub) => `<li class="row-item"><div class="grow"><div class="strong">${title}</div><div class="small muted">${sub}</div></div><label class="switch ${k ? '' : 'off'}"><input type="checkbox" data-action="cal-opt" data-k="${key}" ${ag[key] ? 'checked' : ''} ${k ? '' : 'disabled'} aria-label="${esc(title)}"><span></span></label></li>`;
-    const nxt = weekItems(todayIso(), isoAdd(todayIso(), 30)).filter(x => x.kind !== 'busy').slice(0, 4);
-    return `<section class="card email-settings agenda-settings" id="agenda-settings">
-      <div class="card-head"><div><h2>Agenda</h2><p class="small muted">Koppel Outlook of Google Agenda: opnamedagen en deadlines komen automatisch in je eigen agenda en je ziet bij het plannen of je vrij bent.</p></div>
-        ${k ? `<span class="send-pill">${CAL_LOGO[k]} Gekoppeld met ${esc(CAL[k].label)}</span>` : '<span class="pill inv-open">Nog niet gekoppeld</span>'}</div>
-      <div class="providers">${['outlook', 'google'].map(calProviderCard).join('')}</div>
-      <div class="email-opts cal-opts">
-        <div><h3>Opties</h3><ul class="list">
-          ${opt('autoZet', 'Opnamedagen en deadlines automatisch in je agenda zetten', 'In een aparte agenda ‘Diafragmo’, inclusief locatie en call time')}
-          ${opt('checkBeschikbaar', 'Beschikbaarheid checken bij plannen', 'Toont “vrij / bezet” bij het kiezen van een datum')}
-        </ul>${k ? '' : '<p class="tiny muted">Koppel eerst een agenda om deze opties te gebruiken.</p>'}</div>
-        <div><h3>Komt in je agenda</h3>
-          <ul class="cal-preview">${nxt.map(x => `<li><span class="wk-dot ${x.kind}"></span><span class="grow"><span class="strong small">${esc(x.titel)}</span><span class="tiny muted"> · ${fdateShort(x.datum)}${x.tijd ? ' · ' + esc(x.tijd) : ''}</span></span>${k && ag.autoZet ? `<span class="ok" title="Staat in je agenda">${icon('check')}</span>` : ''}</li>`).join('') || '<li class="muted small">Niets gepland in de komende 30 dagen.</li>'}</ul>
-          <p class="tiny muted">Van je eigen afspraken ziet Diafragmo alleen of je vrij of bezet bent – niet wat erin staat.</p></div>
-      </div>
-    </section>`;
-  }
-  function openCalConsent(k) {
-    const a = S.agenda[k], pr = CAL[k];
-    modal({
-      title: k === 'outlook' ? 'Aanmelden bij Microsoft (demo)' : 'Inloggen met Google (demo)',
-      body: `<div class="consent">
-        <div class="consent-logos"><span class="consent-app"><img src="img/app-icoon.svg" alt="Diafragmo" style="width:52px;height:52px;border-radius:14px;display:block"></span><span class="consent-dots"><i></i><i></i><i></i></span><span class="consent-prov">${CAL_LOGO[k]}</span></div>
-        <div class="consent-acct"><span class="avatar sm">SV</span><div class="grow"><div class="strong small">Sanne de Vries</div><div class="tiny muted">${esc(a.adres)}</div></div><span class="tiny muted">${esc(pr.bedrijf)}-account</span></div>
-        <p class="consent-q"><strong>Diafragmo</strong> wil:</p>
-        <ul class="perm-list">
-          <li>${icon('calendar')}<div><div class="strong">Afspraken maken in een aparte agenda ‘Diafragmo’</div><div class="tiny muted">Opnamedagen (met locatie en call time) en deadlines van je projecten. Wijzigingen worden automatisch bijgewerkt.</div></div></li>
-          <li>${icon('clock')}<div><div class="strong">Zien wanneer je vrij of bezet bent</div><div class="tiny muted">Alleen vrij/bezet, zodat je bij het plannen dubbele boekingen ziet. De inhoud van je afspraken blijft privé.</div></div></li>
-        </ul>
-        <p class="tiny muted">Je kunt deze toegang altijd intrekken in Instellingen of in je ${esc(pr.bedrijf)}-account. Demo: er wordt niet echt ingelogd.</p>
-      </div>`,
-      actions: [{ label: 'Annuleren', cls: 'ghost', onClick: closeModal }, {
-        label: 'Toestaan', cls: 'primary', onClick: () => {
-          const body = $('.modal-body'); if (body) body.innerHTML = `<div class="paying"><div class="spinner blue"></div><p>Verbinden met ${esc(pr.label)}…</p></div>`;
-          $$('.modal-foot .btn').forEach(b => { b.disabled = true; });
-          const tmo = setTimeout(() => {
-            ['outlook', 'google'].forEach(x => { if (x !== k) { S.agenda[x].connected = false; S.agenda[x].sinds = null; } });
-            a.connected = true; a.sinds = nowLabel(); demoSave();
-            const n = weekItems(todayIso(), isoAdd(todayIso(), 60)).filter(x => x.kind !== 'busy').length;
-            closeModal(); toast(`${esc(pr.label)} gekoppeld (demo) · ${n} opnamedagen en deadlines in je agenda gezet`); renderKeep();
-          }, 900);
-          cleanupFns.push(() => clearTimeout(tmo));
-        }
-      }]
-    });
   }
   function weekItems(from, to) {
     const items = [];
@@ -2277,7 +2302,12 @@
     // E-mail
     'compose': el => { const p = proj(el.dataset.id); if (p) openCompose(draftFor(p, el.dataset.kind || 'leeg', { nr: el.dataset.nr })); },
     'reply': el => { const p = proj(el.dataset.id); const m = (S.email.threads[p.id] || [])[Number(el.dataset.i)]; if (m) openCompose(draftFor(p, 'reply', { msg: m })); },
-    'compose-connect': el => { const d = readCompose(); openConsent(el.dataset.k, () => openCompose(d)); },
+    'compose-connect': el => { const d = readCompose(); openConsent(el.dataset.k, ok => { if (ok) renderKeep(); openCompose(d); }); },
+    'mail-enable': el => {
+      const k = accKey(el.dataset.k), inCompose = !!$('#compose-form'), d = inCompose ? readCompose() : null;
+      setMail(k, true); toast(`E-mail aan · verzenden via ${esc(ACC[k].mail)} (${esc(acc(k).adres)})`); renderKeep();
+      if (d) openCompose(d);
+    },
     'cmp-del-att': el => { const d = readCompose(); d.att.splice(Number(el.dataset.i), 1); $('#cmp-att').innerHTML = attHtml(d.att); },
     'cmp-add-att': () => {
       const d = readCompose(); const opts = [{ naam: 'Algemene_voorwaarden.pdf', grootte: '120 KB' }, { naam: 'Callsheet.pdf', grootte: '96 KB' }, { naam: 'Moodboard.pdf', grootte: '2,4 MB' }];
@@ -2286,13 +2316,21 @@
       d.att.push(next); $('#cmp-att').innerHTML = attHtml(d.att); toast(`Bijlage “${esc(next.naam)}” toegevoegd (demo)`);
     },
     'mail-filter': el => { S.email.filter = el.dataset.f; renderKeep(); },
+    'acc-connect': el => openConsent(el.dataset.k),
     'email-connect': el => openConsent(el.dataset.k),
-    'email-disconnect': el => {
-      const k = el.dataset.k, e = S.email; e.accounts[k].connected = false; e.accounts[k].sinds = null;
-      if (e.active === k) { const other = Object.keys(e.accounts).find(x => e.accounts[x].connected); e.active = other || null; }
-      toast(`${PROV[k].label} ontkoppeld (demo)${e.active ? ' · verzenden gaat nu via ' + PROV[e.active].label : ''}`); renderKeep();
+    'cal-connect': el => openConsent(el.dataset.k),
+    'acc-disconnect': el => {
+      const k = accKey(el.dataset.k); Object.assign(acc(k), { connected: false, sinds: null, mail: true, agenda: true }); fixActive(); demoSave();
+      const s = sender();
+      toast(`${esc(ACC[k].naam)} ontkoppeld (demo) · e-mail en agenda gestopt${s.k !== 'noreply' ? ' · verzenden gaat nu via ' + esc(s.label) : ''}`); renderKeep();
     },
-    'email-active': el => { S.email.active = el.dataset.k; toast(`Actief verzendaccount: ${esc(PROV[el.dataset.k].label)} · ${esc(S.email.accounts[el.dataset.k].adres)}`); renderKeep(); },
+    'acc-toggle': el => {
+      const k = accKey(el.dataset.k), on = el.checked, pr = ACC[k];
+      if (el.dataset.w === 'mail') { setMail(k, on); toast(on ? `E-mail aan · verzenden via ${esc(pr.mail)}` : `E-mail uit voor ${esc(pr.naam)}${sender().k !== 'noreply' ? ' · verzenden gaat nu via ' + esc(sender().label) : ' · mail gaat via Diafragmo (noreply)'}`); }
+      else { const other = setAgenda(k, on); toast(on ? `Agenda aan · ${esc(pr.cal)}${other ? ` (agenda van ${esc(ACC[other].naam)} uitgezet)` : ''}` : `Agenda uit voor ${esc(pr.naam)} · geen agenda-sync en geen vrij/bezet`); }
+      renderKeep();
+    },
+    'email-active': el => { const k = accKey(el.dataset.k); S.email.active = k; demoSave(); toast(`Actief verzendaccount: ${esc(ACC[k].mail)} · ${esc(acc(k).adres)}`); renderKeep(); },
     'email-opt': el => {
       const labels = { sigOn: 'E-mailhandtekening', bcc: 'BCC naar mezelf', autoKoppel: 'Automatisch koppelen' };
       S.email[el.dataset.k] = el.checked; toast(`${labels[el.dataset.k]} ${el.checked ? 'aan' : 'uit'}`); renderKeep();
@@ -2347,8 +2385,6 @@
     'quote-view': el => { const p = proj(el.dataset.id), q = S.quotes[p.id]; modal({ title: `Offerte ${q.nr}`, wide: true, body: `${signStatusHtml(q)}<div class="doc-preview pq-doc in-modal">${quoteDocHtml(p, q)}</div>`, actions: [{ label: 'Sluiten', cls: 'ghost', onClick: closeModal }].concat(q.signed ? [] : [{ label: `${icon('link')} Link voor ondertekening kopiëren`, cls: 'primary', onClick: () => copyText(signLink(p.id), 'Link voor ondertekening gekopieerd') }]) }); },
     'sign-reset': el => { unsign(el.dataset.id); demoSave(); toast('Demo: handtekening verwijderd – de offerte wacht weer op ondertekening'); renderKeep(); },
     // Agenda
-    'cal-connect': el => openCalConsent(el.dataset.k),
-    'cal-disconnect': el => { const a = S.agenda[el.dataset.k]; a.connected = false; a.sinds = null; demoSave(); toast(`${esc(CAL[el.dataset.k].label)} ontkoppeld (demo)`); renderKeep(); },
     'cal-opt': el => { S.agenda[el.dataset.k] = el.checked; demoSave(); toast(`${el.dataset.k === 'autoZet' ? 'Automatisch in je agenda zetten' : 'Beschikbaarheid checken'} ${el.checked ? 'aan' : 'uit'}`); renderKeep(); },
     // Pro
     'upgrade': el => upgradeModal(el.dataset.f),
@@ -2574,6 +2610,7 @@
     applyDemo(demoLoad(), false);
     if (!location.hash) history.replaceState(null, '', '#/dashboard');
     render();
+    if (S.migratedKoppeling) { S.migratedKoppeling = false; toast('Je bestaande koppeling is overgezet: e-mail en agenda zitten nu in één koppeling per account'); }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
   window.FRAME_STATE = S; // handig bij debuggen in de console

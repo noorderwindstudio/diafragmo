@@ -1185,3 +1185,28 @@ textarea.cs-in { resize: vertical; line-height: 1.45; }
   body.print-cs .cs-blocks li, body.print-cs .cs-crew li { break-inside: avoid; }
 }
 .cs-static { display: none; }
+
+/* ---------- 0.4.1: één koppeling voor e-mail & agenda (Microsoft 365 / Google) ---------- */
+.kop-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-ink); margin-bottom: 2px; }
+.koppeling-settings .card-head { align-items: flex-start; }
+.kop-status { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.prov-logo-box.duo { width: 58px; gap: 2px; display: flex; align-items: center; justify-content: center; }
+.prov-logo-box.duo .prov-logo { width: 22px; height: 22px; }
+.consent-prov.duo { width: 76px; display: flex; align-items: center; justify-content: center; gap: 4px; background: var(--field); }
+.consent-prov.duo .prov-logo { width: 26px; height: 26px; }
+.acc-tgs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; }
+.acc-tg { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line-2); background: var(--surface); }
+.acc-tg:last-child, .acc-sub:last-child { border-bottom: 0; }
+.acc-tg-ic { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex: none; background: var(--ok-soft); color: var(--ok); }
+.acc-tg.off .acc-tg-ic { background: var(--surface-3); color: var(--muted); }
+.acc-tg .tiny { line-height: 1.35; }
+.acc-sub { padding: 8px 12px 10px 52px; border-bottom: 1px solid var(--line-2); background: var(--surface-2); font-size: 13px; }
+.acc-foot { gap: 8px; }
+.kop-h3 { display: flex; align-items: center; gap: 7px; }
+.kop-h3 .ic { color: var(--accent); }
+.koppeling-settings .cal-opts { border-top-style: dashed; }
+@media (max-width: 640px) {
+  .kop-status { justify-content: flex-start; }
+  .acc-sub { padding-left: 12px; }
+  .consent-prov.duo { width: 68px; }
+}
