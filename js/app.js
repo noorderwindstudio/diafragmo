@@ -33,6 +33,8 @@
     showreelSent: null,
     portal: { uploads: [{ naam: 'Logo_VanDam_2026.svg', grootte: '48 KB', klaar: true }, { naam: "Archieffoto's_1951.zip", grootte: '312 MB', klaar: true }], comments: [], paidIds: {} },
     settings: { plan: 'Pro', koppelingen: { Moneybird: true, 'e-Boekhouden': false, Jortt: false } },
+    // 0.4.3: Tikkie (Tikkie Zakelijk, ABN AMRO) als extra betaalmethode naast iDEAL | Wero – standaard uit (demo)
+    tikkie: { on: false, gekoppeld: false, sinds: null, verzoeken: {} },
     // 0.4.1: één koppeling per aanbieder voor e-mail én agenda (los aan/uit te zetten)
     koppeling: {
       microsoft: { adres: 'sanne@sannedevriesvideo.nl', connected: false, sinds: null, mail: true, agenda: true },
@@ -61,6 +63,7 @@
     offerte: { naam: 'Offerte', onderwerp: 'Offerte {documentnr} – {project}', body: 'Hoi {voornaam},\n\nBedankt voor het fijne gesprek! In de bijlage vind je de offerte voor “{project}” ({bedrag} incl. btw).\n\nIn je persoonlijke klantportaal bekijk je de offerte en geef je met één klik akkoord:\n{portaallink}\n\nVragen of iets aanpassen? Laat het gerust weten.\n\nHartelijke groet,\nSanne' },
     factuur: { naam: 'Factuur', onderwerp: 'Factuur {documentnr} – {project}', body: 'Hoi {voornaam},\n\nIn de bijlage vind je factuur {documentnr} voor “{project}” van {bedrag} (incl. btw), te voldoen vóór {vervaldatum}.\n\nBetalen kan direct met iDEAL | Wero via je klantportaal:\n{portaallink}\n\nBedankt voor de fijne samenwerking!\n\nHartelijke groet,\nSanne' },
     herinnering: { naam: 'Herinnering', onderwerp: 'Herinnering: factuur {documentnr} – {project}', body: 'Hoi {voornaam},\n\nEen vriendelijke herinnering: factuur {documentnr} van {bedrag} voor “{project}” staat nog open (vervaldatum {vervaldatum}).\n\nBetalen kan snel met iDEAL | Wero via je klantportaal:\n{portaallink}\n\nIs de betaling al onderweg? Dan kun je deze mail negeren.\n\nHartelijke groet,\nSanne' },
+    tikkie: { naam: 'Tikkie', onderwerp: 'Betaalverzoek via Tikkie: factuur {documentnr} – {project}', body: 'Hoi {voornaam},\n\nVoor factuur {documentnr} (“{project}”) heb ik een Tikkie aangemaakt van {bedrag}. Betalen kan in een paar tikken via deze link, geldig tot {geldigtot}:\n{tikkielink}\n\nLiever via je klantportaal met iDEAL | Wero? Dat kan ook:\n{portaallink}\n\nBedankt!\n\nHartelijke groet,\nSanne' },
     oplevering: { naam: 'Oplevering', onderwerp: 'Je video is klaar: {project}', body: 'Hoi {voornaam},\n\nDe definitieve versie van “{project}” staat klaar! Je downloadt de video in 4K, de social-versie en de ondertitels via je klantportaal:\n{portaallink}\n\nDe downloadlink blijft 12 maanden geldig. Bedankt voor het vertrouwen, {klant}!\n\nHartelijke groet,\nSanne' }
   };
   S.email.templates = JSON.parse(JSON.stringify(DEFAULT_TPL));
@@ -312,7 +315,7 @@
       }
       case 'instellingen': {
         html = viewSettings();
-        const anchor = { email: '#koppeling', mail: '#koppeling', agenda: '#koppeling', koppeling: '#koppeling', koppelingen: '#koppeling', hosting: '#hosting-privacy', abonnement: '#abonnement' }[r.a];
+        const anchor = { email: '#koppeling', mail: '#koppeling', agenda: '#koppeling', koppeling: '#koppeling', koppelingen: '#koppeling', hosting: '#hosting-privacy', abonnement: '#abonnement', betaalmethoden: '#betaalmethoden', betalen: '#betaalmethoden', tikkie: '#betaalmethoden' }[r.a];
         if (anchor) mount = () => { const el = $(anchor); if (el) el.scrollIntoView(); };
         break;
       }
@@ -569,11 +572,11 @@
     const f = S.finance[p.id]; const kosten = financeCosts(p.id); const tu = projectHours(p.id);
     const act = d => d.status === 'Open' || d.status === 'Verlopen' ? `<button class="btn sm ghost" data-action="compose" data-id="${p.id}" data-kind="herinnering" data-nr="${esc(d.nr)}">${icon('send')} Herinner</button>` : d.status === 'Verstuurd' ? `<button class="btn sm ghost" data-action="compose" data-id="${p.id}" data-kind="offerte">${icon('send')} Opnieuw sturen</button>` : d.status === 'Betaald' || d.status === 'Geaccepteerd' ? '' : `<button class="btn sm ghost" data-action="quote-for" data-id="${p.id}">Maken</button>`;
     const q = S.quotes[p.id];
-    const doc = (label, d, extra) => `<div class="fin-doc card"><div class="small muted">${label}</div><div class="strong big">${eur(d.bedrag)}</div><div class="small muted">${esc(d.nr)} · ${esc(d.datum)}</div>${extra || ''}<div class="row-between">${statusPillInv(d.status)}${act(d)}</div></div>`;
+    const doc = (label, d, extra, inv) => `<div class="fin-doc card"><div class="small muted">${label}</div><div class="strong big">${eur(d.bedrag)}</div><div class="small muted">${esc(d.nr)} · ${esc(d.datum)}</div>${extra || ''}<div class="row-between">${statusPillInv(d.status)}${act(d)}</div>${inv ? tikkieStatusHtml(d.nr) + tikkieActionsHtml(d.nr, p.id, d.status) : ''}</div>`;
     return `${quoteSignCard(p)}<div class="fin-docs">
         ${doc('Offerte (excl. btw)', f.offerte, q ? `<div class="tiny ${q.signed ? 'ok' : 'muted'}">${icon(q.signed ? 'check' : 'pen')} ${q.signed ? 'Digitaal ondertekend' : 'Wacht op handtekening'}</div>` : '')}
-        ${doc('Aanbetaling (incl. btw)', f.aanbetaling)}
-        ${doc('Eindfactuur (incl. btw)', f.eindfactuur)}
+        ${doc('Aanbetaling (incl. btw)', f.aanbetaling, '', true)}
+        ${doc('Eindfactuur (incl. btw)', f.eindfactuur, '', true)}
       </div>
       <div class="grid-2 wide-left">
         <section class="card">
@@ -871,10 +874,11 @@
           </div>
           <label class="check"><input type="checkbox" data-q="aanbetaling" ${q.aanbetaling ? 'checked' : ''}> Vraag 50% aanbetaling bij akkoord</label>
           <div class="totals" id="totals"></div>
+          ${q.type === 'Factuur' ? tikkieStatusHtml(q.nr) + (S.tikkie.verzoeken[q.nr] && !S.tikkie.verzoeken[q.nr].betaald && q.status !== 'Betaald' ? tikkieActionsHtml(q.nr, q.projectId, q.status, 'paid-only') : '') : ''}
           <div class="builder-actions">
             <button class="btn ghost" data-action="pdf">${icon('download')} PDF</button>
             ${q.type === 'Offerte' ? `<button class="btn" data-action="to-invoice">${icon('euro')} Zet om naar factuur</button><button class="btn primary" data-action="send-quote">${icon('send')} Verstuur offerte</button>`
-              : `<button class="btn" data-action="back-to-quote">Terug naar offerte</button><button class="btn primary" data-action="send-quote">${icon('send')} Verstuur factuur</button>`}
+              : `<button class="btn" data-action="back-to-quote">Terug naar offerte</button>${tikkieOn() && q.status !== 'Betaald' ? `<button class="btn" data-action="tikkie-open" data-id="${q.projectId}" data-nr="${esc(q.nr)}">${icon('send')} Tikkie sturen</button>` : ''}<button class="btn primary" data-action="send-quote">${icon('send')} Verstuur factuur</button>`}
           </div>
         </section>
         <section class="doc-preview card" id="quote-preview" aria-label="Voorbeeld document"></section>
@@ -891,7 +895,7 @@
         <div class="card-head"><h2>Recente documenten</h2></div>
         <div class="table-wrap"><table class="table">
           <thead><tr><th>Nummer</th><th>Soort</th><th>Klant</th><th class="num">Bedrag</th><th>Status</th><th></th></tr></thead>
-          <tbody>${docs.map(d => `<tr class="click" data-action="go" data-href="#/project/${d.pid}/financien"><td class="strong">${esc(d.nr)}</td><td>${d.soort}</td><td>${esc(d.klant)}</td><td class="num">${eur(d.bedrag)}${d.soort === 'Offerte' ? ' <span class="tiny muted">excl.</span>' : ''}</td><td>${statusPillInv(d.status)}</td><td class="num"><span class="link">Project →</span></td></tr>`).join('')}</tbody>
+          <tbody>${docs.map(d => `<tr class="click" data-action="go" data-href="#/project/${d.pid}/financien"><td class="strong nr-cell">${esc(d.nr)}</td><td>${d.soort}</td><td>${esc(d.klant)}</td><td class="num">${eur(d.bedrag)}${d.soort === 'Offerte' ? ' <span class="tiny muted">excl.</span>' : ''}</td><td>${statusPillInv(d.status)}${d.soort === 'Factuur' ? tikkieStatusHtml(d.nr) : ''}</td><td class="num"><div class="doc-row-actions">${d.soort === 'Factuur' ? tikkieActionsHtml(d.nr, d.pid, d.status) : ''}<span class="link">Project →</span></div></td></tr>`).join('')}</tbody>
         </table></div>
       </section>`;
   }
@@ -1031,9 +1035,11 @@
     outlook: '<svg class="prov-logo" viewBox="0 0 32 32" aria-hidden="true"><rect x="11" y="6" width="19" height="20" rx="2.5" fill="#28a8ea"/><path d="M11.5 11.5l9 6 9-6" fill="none" stroke="#fff" stroke-width="1.6" opacity=".9"/><rect x="2" y="8" width="16" height="16" rx="2.5" fill="#0a64c8"/><ellipse cx="10" cy="16" rx="3.8" ry="4.5" fill="none" stroke="#fff" stroke-width="2.4"/></svg>',
     gmail: '<svg class="prov-logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 10.5v13A2.5 2.5 0 0 0 5.5 26H9V14.2z" fill="#4285f4"/><path d="M29 10.5v13a2.5 2.5 0 0 1-2.5 2.5H23V14.2z" fill="#34a853"/><path d="M23 8.6v5.6l6-4.5V8.4c0-2.2-2.5-3.4-4.2-2.1z" fill="#fbbc04"/><path d="M9 14.2V8.6l7 5.3 7-5.3v5.6l-7 5.2z" fill="#ea4335"/><path d="M3 8.4v1.3l6 4.5V8.6L7.2 6.3C5.5 5 3 6.2 3 8.4z" fill="#c5221f"/></svg>'
   };
-  const TPL_KEYS = ['offerte', 'factuur', 'herinnering', 'oplevering'];
+  const TPL_KEYS = ['offerte', 'factuur', 'herinnering', 'tikkie', 'oplevering'];
+  const tplKeys = () => TPL_KEYS.filter(k => k !== 'tikkie' || tikkieOn()); // sjabloon Tikkie alleen als Tikkie aan staat
   const PLACEHOLDERS = ['{klant}', '{voornaam}', '{project}', '{portaallink}', '{documentnr}', '{bedrag}', '{vervaldatum}'];
-  const KIND_TITLE = { offerte: 'Offerte versturen', factuur: 'Factuur versturen', herinnering: 'Betaalherinnering versturen', oplevering: 'Opleveringsmail versturen', leeg: 'Nieuwe e-mail', reply: 'Antwoorden' };
+  const TIKKIE_PH = ['{tikkielink}', '{geldigtot}'];
+  const KIND_TITLE = { offerte: 'Offerte versturen', factuur: 'Factuur versturen', herinnering: 'Betaalherinnering versturen', tikkie: 'Tikkie versturen per e-mail', oplevering: 'Opleveringsmail versturen', leeg: 'Nieuwe e-mail', reply: 'Antwoorden' };
   const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   const nowTime = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
   const isoAdd = (iso, days) => { const d = pd(iso); d.setDate(d.getDate() + days); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -1092,14 +1098,16 @@
     const adr = clientEmail(p);
     const d = { pid: p.id, kind, origKind: kind, to: adr ? `${p.contact} <${adr}>` : '', subject: '', body: '', att: [], onSent: opt.onSent || null, title: opt.title };
     d.origOnSent = d.onSent;
-    const vars = { klant: p.klant, voornaam: firstName(p.contact), project: p.titel, portaallink: portalLink(p), afzender: D.studio.eigenaar, documentnr: '', bedrag: '', vervaldatum: '' };
+    const vars = { klant: p.klant, voornaam: firstName(p.contact), project: p.titel, portaallink: portalLink(p), afzender: D.studio.eigenaar, documentnr: '', bedrag: '', vervaldatum: '', tikkielink: '', geldigtot: '' };
     let doc = opt.doc || (opt.nr ? findDoc(p, opt.nr) : null);
     if (kind === 'offerte') {
       const o = S.finance[p.id].offerte;
       doc = doc || { nr: o.nr !== '–' ? o.nr : 'O2026-022', bedrag: Math.round(p.budget * 121) / 100 };
-    } else if (kind === 'factuur' || kind === 'herinnering') doc = doc || openInvoiceDoc(p);
+    } else if (kind === 'factuur' || kind === 'herinnering' || kind === 'tikkie') doc = doc || openInvoiceDoc(p);
     d.doc = doc;
     if (doc) { vars.documentnr = doc.nr; vars.bedrag = eur(doc.bedrag); vars.vervaldatum = doc.vervalt ? fdate(doc.vervalt) : ''; }
+    const tk = doc && (doc.tikkie || S.tikkie.verzoeken[doc.nr]);
+    if (tk) { vars.tikkielink = tk.link; vars.geldigtot = fdate(tk.geldig); if (kind === 'tikkie') vars.bedrag = eur(tk.bedrag); }
     if (TPL_KEYS.includes(kind)) {
       const t = S.email.templates[kind];
       d.subject = fillTpl(t.onderwerp, vars); d.body = fillTpl(t.body, vars);
@@ -1142,7 +1150,7 @@
           <label class="cmp-row"><span class="cmp-lbl">Aan</span><input id="cmp-to" required pattern=".*[^@\\s]+@[^@\\s]+\\.[^@\\s]+.*" title="Vul een geldig e-mailadres in" placeholder="naam@bedrijf.nl" value="${esc(d.to)}"></label>
           ${e.bcc ? `<div class="cmp-row"><span class="cmp-lbl">Bcc</span><span class="cmp-val small muted">${esc(bccAdr)} (naar mezelf)</span></div>` : ''}
           <label class="cmp-row"><span class="cmp-lbl">Onderwerp</span><input id="cmp-subj" required value="${esc(d.subject)}"></label>
-          ${d.kind !== 'reply' ? `<label class="cmp-row"><span class="cmp-lbl">Sjabloon</span><select id="cmp-tpl" aria-label="Sjabloon">${[['leeg', 'Leeg bericht']].concat(TPL_KEYS.map(k => [k, S.email.templates[k].naam])).map(o => `<option value="${o[0]}" ${o[0] === d.kind ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select></label>` : ''}
+          ${d.kind !== 'reply' ? `<label class="cmp-row"><span class="cmp-lbl">Sjabloon</span><select id="cmp-tpl" aria-label="Sjabloon">${[['leeg', 'Leeg bericht']].concat(tplKeys().concat(d.kind === 'tikkie' && !tikkieOn() ? ['tikkie'] : []).map(k => [k, S.email.templates[k].naam])).map(o => `<option value="${o[0]}" ${o[0] === d.kind ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select></label>` : ''}
         </div>
         <textarea id="cmp-body" rows="9" aria-label="Bericht">${esc(d.body)}</textarea>
         ${e.sigOn ? `<div class="cmp-sig"><div class="tiny muted">Handtekening · <a class="link" href="#/instellingen/email">aanpassen</a></div><div class="sig-text">${esc(e.sig)}</div></div>` : ''}
@@ -1311,12 +1319,12 @@
         </div>
         <div>
           <h3>Sjablonen</h3>
-          <div class="seg sm tpl-seg">${TPL_KEYS.map(x => `<button class="${x === e.tplSel ? 'active' : ''}" data-action="tpl-sel" data-k="${x}">${esc(e.templates[x].naam)}</button>`).join('')}</div>
+          <div class="seg sm tpl-seg">${tplKeys().map(x => `<button class="${x === e.tplSel ? 'active' : ''}" data-action="tpl-sel" data-k="${x}">${esc(e.templates[x].naam)}</button>`).join('')}</div>
           <div class="form-col tpl-form">
             <label>Onderwerp<input data-tpl-f="onderwerp" value="${esc(t.onderwerp)}"></label>
             <label>Bericht<textarea data-tpl-f="body" rows="9">${esc(t.body)}</textarea></label>
           </div>
-          <div class="ph-chips"><span class="tiny muted">Invoegen:</span>${PLACEHOLDERS.map(x => `<button class="chip ph" data-action="tpl-insert" data-ph="${x}">${x}</button>`).join('')}</div>
+          <div class="ph-chips"><span class="tiny muted">Invoegen:</span>${PLACEHOLDERS.concat(e.tplSel === 'tikkie' ? TIKKIE_PH : []).map(x => `<button class="chip ph" data-action="tpl-insert" data-ph="${x}">${x}</button>`).join('')}</div>
           <div class="row gap wrap tpl-actions"><button class="btn sm ghost" data-action="tpl-reset">Standaardtekst herstellen</button><button class="btn sm" data-action="tpl-preview">${icon('eye')} Voorbeeld met Bakkerij Van Dam</button></div>
         </div>
       </div>
@@ -1340,7 +1348,7 @@
       { naam: 'Pro', prijs: 39, f: ['Alles uit Basis, incl. digitaal ondertekenen, callsheets & agenda-koppeling', ['Timer voor uren'], ['Ondertiteling & transcriptie (verwerkt in de EU)'], 'Review met feedback op timecode', 'Showreel-site op eigen domein', 'Boekhoudkoppelingen', 'Freelancers & projectmarge', '2 TB opslag', 'Soevereine hosting in de EU · AVG-proof'] }
     ];
     return `
-      <div class="page-head"><div><h1>Instellingen</h1><p class="muted">Profiel, abonnement, hosting & privacy, e-mail, agenda en koppelingen</p></div><div class="head-actions"><button class="btn primary" data-action="save-settings">${icon('check')} Opslaan</button></div></div>
+      <div class="page-head"><div><h1>Instellingen</h1><p class="muted">Profiel, abonnement, betaalmethoden, hosting & privacy, e-mail, agenda en koppelingen</p></div><div class="head-actions"><button class="btn primary" data-action="save-settings">${icon('check')} Opslaan</button></div></div>
       <div class="grid-2">
         <section class="card">
           <div class="card-head"><h2>Bedrijfsprofiel</h2></div>
@@ -1380,6 +1388,7 @@
               <label class="switch"><input type="checkbox" data-action="toggle-int" data-k="${esc(k)}" ${st.koppelingen[k] ? 'checked' : ''} aria-label="${esc(k)} koppelen"><span></span></label></li>`).join('')}</ul>
         </section>
       </div>
+      ${payMethodsHtml()}
       <section class="card eu-card" id="hosting-privacy" aria-labelledby="eu-title">
         <div class="eu-head">
           ${euBadge()}
@@ -1405,7 +1414,7 @@
   function viewNotFound() { return `<div class="empty card">${icon('search')}<h2>Pagina niet gevonden</h2><p class="muted">Deze pagina bestaat niet in het prototype.</p><a class="btn primary" href="#/dashboard">Naar dashboard</a></div>`; }
 
   // ---------- Info-menu, versie, nieuws & support (demo, bewaard in localStorage) ----------
-  const APP_VERSIE = '0.4.2', APP_BUILD = '2026-10-03';
+  const APP_VERSIE = '0.4.3', APP_BUILD = '2026-10-03';
   const NEWS_KEY = 'diafragmo-nieuws-gelezen', TICKETS_KEY = 'diafragmo-tickets';
   const versieLabel = () => `Versie ${APP_VERSIE} (prototype)`;
   const buildLabel = () => `build ${fdate(APP_BUILD)}`;
@@ -1414,6 +1423,9 @@
   const fdt = s => { const d = new Date(s); return isNaN(d) ? esc(s) : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
   const fdtShort = s => { const d = new Date(s); if (isNaN(d)) return esc(s); const n = new Date(); return d.toDateString() === n.toDateString() ? `vandaag ${p2(d.getHours())}:${p2(d.getMinutes())}` : `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
   const CHANGELOG = [
+    { v: '0.4.3', datum: '2026-10-03', items: [
+      ['send', 'Betaalverzoek sturen via Tikkie', 'Zet Tikkie (Tikkie Zakelijk, ABN AMRO) aan bij Instellingen → Betaalmethoden. Bij open facturen stuur je dan met “Tikkie sturen” een betaalverzoek met bedrag, omschrijving en geldigheid, en deel je de link via WhatsApp, e-mail of kopiëren. Betaald? Dan staat de factuur op Betaald, met “betaald via Tikkie”. iDEAL | Wero via betaallink blijft de standaard.']
+    ] },
     { v: '0.4.2', datum: '2026-10-03', items: [
       ['euro', 'Betalen via iDEAL | Wero', 'Online betalen heet nu iDEAL | Wero, de officiële naam die ook Mollie gebruikt. Op facturen, in het klantportaal en in je e-mailsjablonen staat de nieuwe naam; je klanten betalen precies zoals ze gewend zijn.']
     ] },
@@ -1542,7 +1554,7 @@
     modal({
       title: 'Over Diafragmo', body: `<div class="about">
         <div class="about-head"><img class="about-icon" src="img/app-icoon.svg" alt=""><div><div class="about-name">diafragmo</div><div class="small muted">${versieLabel()} · ${buildLabel()}</div></div></div>
-        <p>Diafragmo is projectbeheer voor zelfstandige videomakers: van aanvraag en offerte via draaidagen en review op timecode tot oplevering en factuur met iDEAL | Wero – in één overzicht, met een eigen klantportaal voor je klanten.</p>
+        <p>Diafragmo is projectbeheer voor zelfstandige videomakers: van aanvraag en offerte via draaidagen en review op timecode tot oplevering en factuur met iDEAL | Wero of een Tikkie – in één overzicht, met een eigen klantportaal voor je klanten.</p>
         <p class="small">Gemaakt door <a class="link" href="https://noorderwind.app" target="_blank" rel="noopener">Noorderwind Studio</a>.</p>
         <div class="about-eu">${euBadge('eu-flag')}<span><strong>Soevereine hosting in de EU</strong> – je video's, bestanden en klantgegevens blijven in Europa.</span></div>
         <ul class="about-links">
@@ -1672,7 +1684,7 @@
     const signed = {}; Object.keys(S.quotes).forEach(k => { if (S.quotes[k].signed) signed[k] = S.quotes[k].signed; });
     const shots = {}; Object.keys(D.shotlist).forEach(k => { if (S.shotlist[k]) shots[k] = S.shotlist[k].map(x => !!x.klaar); });
     const kp = { active: S.email.active }; ACC_KEYS.forEach(k => { kp[k] = Object.assign({}, S.koppeling[k]); });
-    const o = { plan: S.settings.plan, agenda: { autoZet: S.agenda.autoZet, checkBeschikbaar: S.agenda.checkBeschikbaar }, koppeling: kp, timer: S.timer, timerUren: S.timerUren, signed, callsheets: S.callsheets, subs: S.subs, shots };
+    const o = { plan: S.settings.plan, agenda: { autoZet: S.agenda.autoZet, checkBeschikbaar: S.agenda.checkBeschikbaar }, koppeling: kp, timer: S.timer, timerUren: S.timerUren, signed, callsheets: S.callsheets, subs: S.subs, shots, tikkie: S.tikkie };
     try { localStorage.setItem(DEMO_KEY, JSON.stringify(o)); } catch (e) { /* privémodus: alleen in geheugen */ }
   }
   function applyDemo(o, live) {
@@ -1691,6 +1703,13 @@
     Object.keys(o.signed || {}).forEach(pid => { const q = S.quotes[pid]; if (q && !q.signed) { q.signed = o.signed[pid]; applySigned(pid); if (live) toast(`Melding: ${esc(q.signed.naam)} heeft offerte ${esc(q.nr)} ondertekend`); } });
     if (o.callsheets && typeof o.callsheets === 'object') S.callsheets = o.callsheets;
     if (o.subs && typeof o.subs === 'object') S.subs = o.subs;
+    if (o.tikkie && typeof o.tikkie === 'object') {
+      const t = o.tikkie; S.tikkie.gekoppeld = !!t.gekoppeld; S.tikkie.on = !!t.on && S.tikkie.gekoppeld; S.tikkie.sinds = t.sinds || null;
+      Object.keys(t.verzoeken || {}).forEach(nr => {
+        const v = t.verzoeken[nr], p = v && proj(v.pid); if (!p) return;
+        S.tikkie.verzoeken[nr] = v; if (v.betaald) { ensure(p); invRefs(nr, v.pid).forEach(r => { r.status = 'Betaald'; }); }
+      });
+    }
     Object.keys(o.shots || {}).forEach(k => { const sl = S.shotlist[k]; if (sl && Array.isArray(o.shots[k])) sl.forEach((x, i) => { if (i < o.shots[k].length) x.klaar = !!o.shots[k][i]; }); });
     if (migrated) { demoSave(); if (!live) S.migratedKoppeling = true; } // pas opslaan als alle demo-status is ingelezen
   }
@@ -1712,6 +1731,132 @@
     }
     return any;
   }
+
+  // ---------- 0.4.3: Betaalmethoden & Tikkie-betaalverzoek (demo – geen echte koppeling, geen echte betaling) ----------
+  const tikkieOn = () => S.tikkie.on && S.tikkie.gekoppeld;
+  const TIKKIE_OPEN = ['Open', 'Verlopen'];
+  // Alle plekken waar een factuur staat (lijst, projectfinanciën, factuur in de bouwer), zodat de status overal gelijk blijft
+  function invRefs(nr, pid) {
+    if (!nr || nr === '–') return [];
+    const out = S.invoices.filter(i => i.nr === nr && i.projectId === pid);
+    const f = S.finance[pid]; if (f) [f.aanbetaling, f.eindfactuur].forEach(d => { if (d && d.nr === nr) out.push(d); });
+    if (S.quote && S.quote.type === 'Factuur' && S.quote.nr === nr && S.quote.projectId === pid) out.push(S.quote);
+    return out;
+  }
+  function invOpenAmount(nr, pid) {
+    const i = S.invoices.find(x => x.nr === nr && x.projectId === pid); if (i) return i.bedrag;
+    const f = S.finance[pid], d = f && [f.aanbetaling, f.eindfactuur].find(x => x.nr === nr); if (d) return d.bedrag;
+    const q = S.quote; if (q && q.type === 'Factuur' && q.nr === nr) return Math.round(qCalc(q).tot * 100) / 100;
+    return 0;
+  }
+  function tikkieStatusHtml(nr) {
+    const t = S.tikkie.verzoeken[nr]; if (!t) return '';
+    if (t.betaald) return `<div class="tikkie-status is-paid tiny">${icon('check')}<span><strong>betaald via Tikkie</strong> · ${esc(t.betaald)}</span></div>`;
+    return `<div class="tikkie-status tiny"><span class="pay-pill tikkie">Tikkie</span><span>verstuurd op ${esc(t.verstuurd)} · ${esc(t.via)} · ${eur(t.bedrag)}</span></div>`;
+  }
+  // Knoppen alleen als Tikkie aan staat (anders verborgen; de hint staat in Instellingen)
+  function tikkieActionsHtml(nr, pid, status, mode) {
+    if (!tikkieOn() || !nr || nr === '–') return '';
+    const t = S.tikkie.verzoeken[nr];
+    if (status === 'Betaald' || (t && t.betaald)) return '';
+    if (mode !== 'paid-only' && !TIKKIE_OPEN.includes(status)) return '';
+    const send = mode === 'paid-only' ? '' : `<button class="btn sm" data-action="tikkie-open" data-id="${pid}" data-nr="${esc(nr)}">${icon('send')} Tikkie sturen</button>`;
+    const paid = t ? `<button class="btn sm ghost" data-action="tikkie-paid" data-id="${pid}" data-nr="${esc(nr)}">${icon('check')} Demo: markeer als betaald via Tikkie</button>` : '';
+    return send || paid ? `<div class="tikkie-actions">${send}${paid}</div>` : '';
+  }
+  function payMethodsHtml() {
+    const t = S.tikkie, on = tikkieOn();
+    return `<section class="card pay-methods" id="betaalmethoden" aria-labelledby="pm-title">
+      <div class="card-head"><h2 id="pm-title">Betaalmethoden</h2><span class="small muted">voor facturen en betaalverzoeken</span></div>
+      <ul class="list pm-list">
+        <li class="row-item">
+          <div class="grow"><div class="pm-title"><span class="pay-pill on-card">iDEAL | Wero</span><span class="strong">iDEAL | Wero via betaallink</span><span class="tag">Standaard</span></div>
+            <div class="small muted">Op elke factuur, in je e-mails en in het klantportaal. Altijd aan.</div></div>
+          <label class="switch" title="Standaard betaalmethode – altijd aan"><input type="checkbox" checked disabled aria-label="iDEAL | Wero via betaallink (standaard, altijd aan)"><span></span></label>
+        </li>
+        <li class="row-item">
+          <div class="grow"><div class="pm-title"><span class="pay-pill tikkie">Tikkie</span><span class="strong">Tikkie (Tikkie Zakelijk, ABN AMRO)</span></div>
+            <div class="small muted">Nederlandse dienst · geschikt voor snelle betaalverzoeken</div>
+            <div class="pm-status tiny ${t.gekoppeld ? 'ok' : 'muted'}">${t.gekoppeld ? `${icon('check')} Gekoppeld met Tikkie Zakelijk · ${esc(D.studio.naam)} · sinds ${esc(t.sinds)}` : 'Niet gekoppeld'}</div>
+            <div class="row gap wrap pm-actions">${t.gekoppeld ? `<button class="btn sm ghost" data-action="tikkie-disconnect">Ontkoppelen</button>` : `<button class="btn sm" data-action="tikkie-connect">${icon('link')} Koppelen</button>`}</div></div>
+          <label class="switch"><input type="checkbox" data-action="tikkie-toggle" ${on ? 'checked' : ''} aria-label="Tikkie-betaalverzoeken aan of uit"><span></span></label>
+        </li>
+      </ul>
+      ${on ? `<div class="banner ok small">${icon('check')}<span class="grow">Tikkie staat aan: bij open facturen zie je nu de knop <strong>Tikkie sturen</strong> (Offertes & facturen en project → Financiën).</span></div>`
+        : `<div class="banner info small">${icon('info')}<span class="grow">Zet Tikkie aan om bij open facturen een knop <strong>Tikkie sturen</strong> te tonen (Offertes & facturen en project → Financiën). Zolang Tikkie uit staat, is de knop verborgen.</span></div>`}
+      <p class="tiny muted">Prototype: er wordt niet echt gekoppeld met ABN AMRO en er worden geen echte betaalverzoeken gemaakt. Geen officiële logo's.</p>
+    </section>`;
+  }
+  function tikkieConsent(after) {
+    modal({
+      title: 'Tikkie Zakelijk koppelen (demo)',
+      body: `<div class="consent">
+        <div class="consent-logos"><span class="consent-app"><img src="img/app-icoon.svg" alt="Diafragmo" style="width:52px;height:52px;border-radius:14px;display:block"></span><span class="consent-dots"><i></i><i></i><i></i></span><span class="consent-prov tikkie-prov"><span class="pay-pill tikkie">Tikkie</span></span></div>
+        <div class="consent-acct"><span class="avatar sm">SV</span><div class="grow"><div class="strong small">${esc(D.studio.naam)}</div><div class="tiny muted">Zakelijke rekening ${esc(D.studio.iban)}</div></div><span class="tiny muted">ABN AMRO</span></div>
+        <p class="consent-q"><strong>Diafragmo</strong> wil met Tikkie Zakelijk:</p>
+        <ul class="perm-list">
+          <li>${icon('euro')}<div><div class="strong">Betaalverzoeken aanmaken namens jou</div><div class="tiny muted">Alleen voor je eigen facturen, met bedrag, omschrijving en geldigheid die jij kiest.</div></div></li>
+          <li>${icon('check')}<div><div class="strong">De betaalstatus van die verzoeken zien</div><div class="tiny muted">Zodat de factuur in Diafragmo op Betaald gaat zodra je klant heeft betaald.</div></div></li>
+        </ul>
+        <p class="tiny muted">Demo: er wordt niet echt ingelogd bij ABN AMRO en er gaat geen geld over. Ontkoppelen kan altijd in Instellingen → Betaalmethoden.</p></div>`,
+      actions: [{ label: 'Annuleren', cls: 'ghost', onClick: () => { closeModal(); if (after) after(false); } }, { label: 'Toestaan en koppelen', cls: 'primary', onClick: () => {
+        Object.assign(S.tikkie, { gekoppeld: true, on: true, sinds: nowLabel() }); demoSave(); closeModal();
+        toast('Tikkie Zakelijk gekoppeld (demo) · “Tikkie sturen” staat nu bij open facturen'); if (after) after(true);
+      } }]
+    });
+  }
+  let TIK = null; // betaalverzoek dat in het venster open staat
+  const tikkieCode = () => { const c = 'abcdefghjkmnpqrstuvwxyz23456789'; let x = ''; for (let i = 0; i < 6; i++) x += c[Math.floor(Math.random() * c.length)]; return x; };
+  const tikkieMsg = (t, p) => `Hoi ${firstName(p.contact)}, hierbij het betaalverzoek van ${eur(t.bedrag)} voor “${t.omschrijving}”. Betalen kan via Tikkie, geldig tot ${fdate(t.geldig)}: ${t.link} Bedankt! Groet, ${firstName(D.studio.eigenaar)}`;
+  const waUrl = (t, p) => 'https://wa.me/?text=' + encodeURIComponent(tikkieMsg(t, p));
+  function tikkieModal(pid, nr) {
+    const p = proj(pid); if (!p || !tikkieOn()) return; ensure(p);
+    const open = invOpenAmount(nr, pid), prev = S.tikkie.verzoeken[nr];
+    TIK = prev ? Object.assign({}, prev) : { nr, pid, bedrag: Math.round(open * 100) / 100, omschrijving: `${nr} – ${p.titel}`, geldig: isoAdd(todayIso(), 14), link: `https://tikkie.me/pay/demo-${slug(nr)}-${tikkieCode()}` };
+    modal({
+      title: 'Tikkie sturen', wide: true,
+      body: `<form id="tikkie-form" class="tikkie-form" novalidate>
+        <div class="tikkie-head"><span class="pay-pill tikkie">Tikkie</span><div class="grow"><div class="strong small">Betaalverzoek voor factuur ${esc(nr)}</div><div class="tiny muted">${esc(p.klant)} · t.a.v. ${esc(p.contact)} · via Tikkie Zakelijk (ABN AMRO)</div></div></div>
+        <div class="form-grid two">
+          <label>Bedrag<div class="input-prefix"><span>€</span><input type="number" id="tikkie-bedrag" min="0.01" step="0.01" required value="${TIK.bedrag.toFixed(2)}"></div><span class="tiny muted">Openstaand op deze factuur: ${eur(open)}</span></label>
+          <label>Geldig tot<input type="date" id="tikkie-geldig" required min="${todayIso()}" value="${TIK.geldig}"><span class="tiny muted">Standaard 14 dagen</span></label>
+          <label class="full">Omschrijving<input id="tikkie-oms" required maxlength="80" value="${esc(TIK.omschrijving)}"></label>
+        </div>
+        <div class="tikkie-link">
+          <div class="row-between"><span class="tiny strong">Betaallink</span><span class="demo-tag">Demo-link</span></div>
+          <input readonly id="tikkie-link" value="${esc(TIK.link)}" aria-label="Tikkie-betaallink (demo)">
+          <div class="tiny muted">Nagemaakte link voor dit prototype – hij werkt niet. In het echte product maakt Tikkie Zakelijk de link aan.</div>
+        </div>
+        <div class="tikkie-share">
+          <a class="btn primary" id="tikkie-wa" href="${esc(waUrl(TIK, p))}" target="_blank" rel="noopener" data-action="tikkie-share" data-via="whatsapp">${icon('msg')} Deel via WhatsApp</a>
+          <button type="button" class="btn" data-action="tikkie-share" data-via="kopie">${icon('link')} Kopieer link</button>
+          <button type="button" class="btn" data-action="tikkie-share" data-via="email">${icon('send')} Verstuur per e-mail</button>
+        </div>
+        ${prev ? `<p class="tiny muted">Eerder verstuurd op ${esc(prev.verstuurd)} (${esc(prev.via)}). Je deelt dezelfde link opnieuw.</p>` : ''}
+        <p class="tiny muted">WhatsApp opent met een kant-en-klaar bericht; jij kiest het contact en verstuurt zelf. Na delen staat bij de factuur “Tikkie verstuurd op …”.</p>
+      </form>`,
+      actions: [{ label: 'Sluiten', cls: 'ghost', onClick: closeModal }]
+    });
+    $('#tikkie-form').addEventListener('submit', ev => { ev.preventDefault(); ev.stopPropagation(); });
+  }
+  function tikkieRead() {
+    if (!TIK) return null;
+    const b = $('#tikkie-bedrag'), g = $('#tikkie-geldig'), o = $('#tikkie-oms');
+    if (b) TIK.bedrag = Math.round((Number(b.value) || 0) * 100) / 100;
+    if (g) TIK.geldig = g.value;
+    if (o) TIK.omschrijving = o.value.trim();
+    const wa = $('#tikkie-wa'); if (wa && TIK.geldig) wa.href = waUrl(TIK, proj(TIK.pid));
+    return TIK;
+  }
+  function tikkieValid() {
+    const f = $('#tikkie-form'); if (!f) return false;
+    const b = $('#tikkie-bedrag'), g = $('#tikkie-geldig'), o = $('#tikkie-oms');
+    b.setCustomValidity(Number(b.value) > 0 ? '' : 'Vul een bedrag groter dan € 0 in');
+    g.setCustomValidity(g.value && g.value >= todayIso() ? '' : 'Kies een datum vanaf vandaag');
+    o.setCustomValidity(o.value.trim() ? '' : 'Vul een omschrijving in');
+    return f.reportValidity();
+  }
+  function tikkieSent(t, via) { S.tikkie.verzoeken[t.nr] = Object.assign({}, t, { verstuurd: nowLabel(), via, betaald: null }); demoSave(); }
 
   // ---------- Pro-functies (timer, ondertiteling) ----------
   const isPro = () => S.settings.plan === 'Pro';
@@ -2472,7 +2617,7 @@
     'del-line': el => { S.quote.lines.splice(Number(el.dataset.i), 1); render(); },
     'new-quote': () => { S.quote = defaultQuote('p6'); S.quote.lines = [Object.assign({}, PRESETS.Draaidag)]; S.quote.nr = 'O2026-023'; toast('Nieuwe offerte gestart'); render(); },
     'pdf': () => toast(`${esc(S.quote.nr)}.pdf gedownload (demo)`),
-    'to-invoice': () => { const q = S.quote; q.type = 'Factuur'; q.nr = 'F2026-034'; q.status = 'Concept'; q.geldig = '2026-10-15'; toast('Offerte omgezet naar factuur F2026-034'); render(); },
+    'to-invoice': () => { const q = S.quote; q.type = 'Factuur'; q.nr = 'F2026-034'; q.status = (S.tikkie.verzoeken[q.nr] || {}).betaald ? 'Betaald' : 'Concept'; q.geldig = '2026-10-15'; toast('Offerte omgezet naar factuur F2026-034'); render(); },
     'back-to-quote': () => { const q = S.quote; q.type = 'Offerte'; q.nr = 'O2026-022'; q.status = 'Concept'; q.geldig = '2026-10-31'; render(); },
     'send-quote': () => {
       const q = S.quote, p = proj(q.projectId), c = qCalc(q);
@@ -2489,7 +2634,29 @@
     // Instellingen
     'set-plan': el => setPlan(el.dataset.plan),
     'toggle-int': el => { S.settings.koppelingen[el.dataset.k] = el.checked; toast(`Koppeling met ${esc(el.dataset.k)} ${el.checked ? 'ingeschakeld' : 'uitgeschakeld'} (demo)`); render(); },
-    'save-settings': () => toast('Instellingen opgeslagen (demo)')
+    'save-settings': () => toast('Instellingen opgeslagen (demo)'),
+    // Betaalmethoden & Tikkie (demo)
+    'tikkie-connect': () => tikkieConsent(ok => { if (ok) renderKeep(); }),
+    'tikkie-disconnect': () => { Object.assign(S.tikkie, { gekoppeld: false, on: false, sinds: null }); if (S.email.tplSel === 'tikkie') S.email.tplSel = 'factuur'; demoSave(); toast('Tikkie ontkoppeld (demo) · “Tikkie sturen” is verborgen'); renderKeep(); },
+    'tikkie-toggle': el => {
+      if (el.checked && !S.tikkie.gekoppeld) { el.checked = false; tikkieConsent(ok => { if (ok) renderKeep(); }); return; }
+      S.tikkie.on = el.checked; if (!el.checked && S.email.tplSel === 'tikkie') S.email.tplSel = 'factuur'; demoSave();
+      toast(el.checked ? 'Tikkie aan · “Tikkie sturen” staat bij open facturen' : 'Tikkie uit · de knop “Tikkie sturen” is verborgen'); renderKeep();
+    },
+    'tikkie-open': el => tikkieModal(el.dataset.id, el.dataset.nr),
+    'tikkie-share': (el, e) => {
+      if (!TIK || !tikkieValid()) { if (e) e.preventDefault(); return; }
+      const t = Object.assign({}, tikkieRead()), p = proj(t.pid), via = el.dataset.via;
+      if (via === 'email') { openCompose(draftFor(p, 'tikkie', { title: 'Tikkie versturen per e-mail', doc: { nr: t.nr, bedrag: t.bedrag, vervalt: t.geldig, tikkie: t }, onSent: () => tikkieSent(t, 'per e-mail') })); return; }
+      if (via === 'kopie') { copyText(t.link, `Tikkie-link gekopieerd (demo) – plak hem in je bericht aan ${esc(firstName(p.contact))}`); tikkieSent(t, 'link gekopieerd'); }
+      else { el.href = waUrl(t, p); tikkieSent(t, 'via WhatsApp'); toast(`WhatsApp geopend met je bericht aan ${esc(p.contact)} · Tikkie verstuurd (demo-link)`); }
+      setTimeout(renderKeep, 0); // na het openen van de link: venster sluiten en factuur bijwerken
+    },
+    'tikkie-paid': el => {
+      const nr = el.dataset.nr, pid = el.dataset.id, t = S.tikkie.verzoeken[nr]; if (!t) return;
+      invRefs(nr, pid).forEach(r => { r.status = 'Betaald'; }); t.betaald = nowLabel(); demoSave();
+      toast(`Demo: factuur ${esc(nr)} staat op Betaald · ${eur(t.bedrag)} betaald via Tikkie`); renderKeep();
+    }
   };
 
   // Formulieren
@@ -2582,6 +2749,7 @@
   });
   document.addEventListener('input', e => {
     const el = e.target;
+    if (el.closest && el.closest('#tikkie-form')) { el.setCustomValidity(''); tikkieRead(); return; }
     if (el.matches('[data-line]')) { const l = S.quote.lines[Number(el.dataset.line)]; const f = el.dataset.f; l[f] = f === 'omschrijving' ? el.value : (el.value === '' ? 0 : Number(el.value)); renderQuoteLive(); return; }
     if (el.matches('input[data-q]') && el.type !== 'checkbox') { S.quote[el.dataset.q] = el.value; renderQuoteLive(); return; }
     if (el.matches('[data-sr]') && el.type !== 'checkbox') { S.showreel[el.dataset.sr] = el.value; refreshReelPreview(); return; }
