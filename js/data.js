@@ -285,7 +285,7 @@ window.FRAME_DATA = (function () {
       { dir: 'in', van: 'Ingrid van Dam', adres: 'ingrid@bakkerijvandam.voorbeeld.nl', datum: '2026-08-29', tijd: '08:21', onderwerp: 'Re: Offerte O2026-018 – Bedrijfsfilm 75 jaar',
         tekst: 'Hoi Sanne,\n\nWe hebben het met de familie besproken en gaan akkoord, ik heb net op de knop gedrukt. Kees zoekt de oude foto’s uit 1951 op zolder op. Kun je die het best via het portaal ontvangen?\n\nGroetjes,\nIngrid' },
       { dir: 'out', van: 'Sanne de Vries', adres: 'sanne@sannedevriesvideo.nl', aan: 'ingrid@bakkerijvandam.voorbeeld.nl', datum: '2026-09-02', tijd: '10:15', onderwerp: 'Aanbetalingsfactuur F2026-024 – Bedrijfsfilm 75 jaar',
-        tekst: 'Hoi Ingrid,\n\nSuper dat jullie akkoord zijn! Hierbij de aanbetalingsfactuur van 50%. Betalen kan met iDEAL via het klantportaal. Daar kan Kees ook de archieffoto’s uploaden (gewoon slepen, een zip mag ook).\n\nHartelijke groet,\nSanne', bijlagen: [{ naam: 'F2026-024.pdf', grootte: '64 KB' }] },
+        tekst: 'Hoi Ingrid,\n\nSuper dat jullie akkoord zijn! Hierbij de aanbetalingsfactuur van 50%. Betalen kan met iDEAL | Wero via het klantportaal. Daar kan Kees ook de archieffoto’s uploaden (gewoon slepen, een zip mag ook).\n\nHartelijke groet,\nSanne', bijlagen: [{ naam: 'F2026-024.pdf', grootte: '64 KB' }] },
       { dir: 'in', van: 'Kees van Dam', adres: 'kees@bakkerijvandam.voorbeeld.nl', datum: '2026-09-05', tijd: '19:47', onderwerp: 'Archieffoto’s 1951',
         tekst: 'Beste Sanne,\n\nIk heb de foto’s in het portaal gezet. Op nummer 14 staat mijn vader voor de eerste winkel, die zou ik graag in de film zien.\n\nMet vriendelijke groet,\nKees van Dam' },
       { dir: 'out', van: 'Sanne de Vries', adres: 'sanne@sannedevriesvideo.nl', aan: 'ingrid@bakkerijvandam.voorbeeld.nl', datum: '2026-09-10', tijd: '11:30', onderwerp: 'Draaiboek draaidagen 16 & 17 september',
@@ -293,7 +293,7 @@ window.FRAME_DATA = (function () {
       { dir: 'out', van: 'Sanne de Vries', adres: 'sanne@sannedevriesvideo.nl', aan: 'ingrid@bakkerijvandam.voorbeeld.nl', datum: '2026-09-30', tijd: '17:02', onderwerp: 'Versie 3 staat klaar: Bedrijfsfilm 75 jaar',
         tekst: 'Hoi Ingrid,\n\nVersie 3 staat klaar in je klantportaal. Het jaartal is aangepast naar 1951 en de muziek begint rustiger. Je kunt direct op het juiste moment in de video feedback geven.\n\nHartelijke groet,\nSanne' },
       { dir: 'out', van: 'Sanne de Vries', adres: 'sanne@sannedevriesvideo.nl', aan: 'ingrid@bakkerijvandam.voorbeeld.nl', datum: '2026-10-01', tijd: '09:00', onderwerp: 'Factuur F2026-032 – Bedrijfsfilm 75 jaar',
-        tekst: 'Hoi Ingrid,\n\nHierbij alvast de eindfactuur, te voldoen vóór 15 oktober. Betalen kan met iDEAL via je klantportaal.\n\nHartelijke groet,\nSanne', bijlagen: [{ naam: 'F2026-032.pdf', grootte: '66 KB' }] },
+        tekst: 'Hoi Ingrid,\n\nHierbij alvast de eindfactuur, te voldoen vóór 15 oktober. Betalen kan met iDEAL | Wero via je klantportaal.\n\nHartelijke groet,\nSanne', bijlagen: [{ naam: 'F2026-032.pdf', grootte: '66 KB' }] },
       { dir: 'in', van: 'Ingrid van Dam', adres: 'ingrid@bakkerijvandam.voorbeeld.nl', datum: '2026-10-02', tijd: '14:32', onderwerp: 'Re: Versie 3 staat klaar: Bedrijfsfilm 75 jaar', nieuw: true,
         tekst: 'Hoi Sanne,\n\nWat is hij mooi geworden! Mijn moeder moest er zelfs een beetje van huilen. Nog één puntje: kan het logo aan het eind iets langer in beeld? Dan keuren we hem daarna meteen goed.\n\nGroetjes,\nIngrid' }
     ]

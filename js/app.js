@@ -59,8 +59,8 @@
   };
   const DEFAULT_TPL = {
     offerte: { naam: 'Offerte', onderwerp: 'Offerte {documentnr} – {project}', body: 'Hoi {voornaam},\n\nBedankt voor het fijne gesprek! In de bijlage vind je de offerte voor “{project}” ({bedrag} incl. btw).\n\nIn je persoonlijke klantportaal bekijk je de offerte en geef je met één klik akkoord:\n{portaallink}\n\nVragen of iets aanpassen? Laat het gerust weten.\n\nHartelijke groet,\nSanne' },
-    factuur: { naam: 'Factuur', onderwerp: 'Factuur {documentnr} – {project}', body: 'Hoi {voornaam},\n\nIn de bijlage vind je factuur {documentnr} voor “{project}” van {bedrag} (incl. btw), te voldoen vóór {vervaldatum}.\n\nBetalen kan direct met iDEAL via je klantportaal:\n{portaallink}\n\nBedankt voor de fijne samenwerking!\n\nHartelijke groet,\nSanne' },
-    herinnering: { naam: 'Herinnering', onderwerp: 'Herinnering: factuur {documentnr} – {project}', body: 'Hoi {voornaam},\n\nEen vriendelijke herinnering: factuur {documentnr} van {bedrag} voor “{project}” staat nog open (vervaldatum {vervaldatum}).\n\nBetalen kan snel met iDEAL via je klantportaal:\n{portaallink}\n\nIs de betaling al onderweg? Dan kun je deze mail negeren.\n\nHartelijke groet,\nSanne' },
+    factuur: { naam: 'Factuur', onderwerp: 'Factuur {documentnr} – {project}', body: 'Hoi {voornaam},\n\nIn de bijlage vind je factuur {documentnr} voor “{project}” van {bedrag} (incl. btw), te voldoen vóór {vervaldatum}.\n\nBetalen kan direct met iDEAL | Wero via je klantportaal:\n{portaallink}\n\nBedankt voor de fijne samenwerking!\n\nHartelijke groet,\nSanne' },
+    herinnering: { naam: 'Herinnering', onderwerp: 'Herinnering: factuur {documentnr} – {project}', body: 'Hoi {voornaam},\n\nEen vriendelijke herinnering: factuur {documentnr} van {bedrag} voor “{project}” staat nog open (vervaldatum {vervaldatum}).\n\nBetalen kan snel met iDEAL | Wero via je klantportaal:\n{portaallink}\n\nIs de betaling al onderweg? Dan kun je deze mail negeren.\n\nHartelijke groet,\nSanne' },
     oplevering: { naam: 'Oplevering', onderwerp: 'Je video is klaar: {project}', body: 'Hoi {voornaam},\n\nDe definitieve versie van “{project}” staat klaar! Je downloadt de video in 4K, de social-versie en de ondertitels via je klantportaal:\n{portaallink}\n\nDe downloadlink blijft 12 maanden geldig. Bedankt voor het vertrouwen, {klant}!\n\nHartelijke groet,\nSanne' }
   };
   S.email.templates = JSON.parse(JSON.stringify(DEFAULT_TPL));
@@ -755,12 +755,12 @@
         </section>
         <section class="pcard">
           <h2>${icon('euro')} Factuur</h2>
-          ${q && !S.invoices.some(i => i.projectId === p.id && i.status !== 'Concept') ? `<div class="invoice-mini"><div class="small muted">Aanbetaling ${q.aanbetalingPct}%</div><div class="amount">${eur(quoteCalc(q).aanb)}</div><div class="small muted">${q.signed ? 'Bedankt voor je akkoord! De aanbetalingsfactuur volgt binnenkort per e-mail.' : 'Na ondertekening van de offerte ontvang je de aanbetalingsfactuur. Betalen kan dan met iDEAL.'}</div></div>` : `<div class="invoice-mini">
+          ${q && !S.invoices.some(i => i.projectId === p.id && i.status !== 'Concept') ? `<div class="invoice-mini"><div class="small muted">Aanbetaling ${q.aanbetalingPct}%</div><div class="amount">${eur(quoteCalc(q).aanb)}</div><div class="small muted">${q.signed ? 'Bedankt voor je akkoord! De aanbetalingsfactuur volgt binnenkort per e-mail.' : 'Na ondertekening van de offerte ontvang je de aanbetalingsfactuur. Betalen kan dan met iDEAL | Wero.'}</div></div>` : `<div class="invoice-mini">
             <div class="row-between"><span class="small muted">${esc(inv.nr)} · ${esc(inv.omschrijving)}</span>${statusPillInv(paid ? 'Betaald' : 'Open')}</div>
             <div class="amount">${eur(inv.bedrag)}</div>
             <div class="small muted">incl. 21% btw · vervaldatum ${fdate(inv.vervalt)}</div>
           </div>
-          ${paid ? `<div class="banner ok small">${icon('check')} Betaald – bedankt!</div>` : `<button class="btn ideal block" data-action="ideal" data-id="${p.id}"><span class="ideal-logo">iD</span> Betalen met iDEAL</button>`}
+          ${paid ? `<div class="banner ok small">${icon('check')} Betaald – bedankt!</div>` : `<button class="btn ideal block" data-action="ideal" data-id="${p.id}" aria-label="Betalen met iDEAL | Wero">Betalen met <span class="pay-pill">iDEAL | Wero</span></button>`}
           <button class="btn ghost block sm" data-action="download" data-name="${esc(inv.nr)}.pdf">${icon('file')} Factuur als PDF</button>`}
         </section>
       </div>
@@ -909,7 +909,7 @@
         <table class="doc-lines"><thead><tr><th>Omschrijving</th><th class="num">Aantal</th><th class="num">Prijs</th><th class="num">Totaal</th></tr></thead>
           <tbody>${q.lines.map(l => `<tr><td>${esc(l.omschrijving || '—')}</td><td class="num">${num(l.aantal, 2)} ${esc(l.eenheid)}</td><td class="num">${eur(l.prijs)}</td><td class="num">${eur(lineTotal(l))}</td></tr>`).join('')}</tbody></table>
         <dl class="sum doc-sum"><dt>Subtotaal</dt><dd>${eur(c.sub)}</dd><dt>Btw 21%</dt><dd>${eur(c.btw)}</dd><dt class="strong">Totaal</dt><dd class="strong">${eur(c.tot)}</dd></dl>
-        ${q.type === 'Factuur' ? `<div class="doc-pay"><span class="ideal-logo">iD</span><div class="small">Betaal direct online met iDEAL via de link in de e-mail, of maak over naar ${esc(D.studio.iban)} o.v.v. ${esc(q.nr)}.</div></div>`
+        ${q.type === 'Factuur' ? `<div class="doc-pay"><span class="pay-pill">iDEAL | Wero</span><div class="small">Betaal direct online met iDEAL | Wero via de link in de e-mail, of maak over naar ${esc(D.studio.iban)} o.v.v. ${esc(q.nr)}.</div></div>`
           : `<div class="small muted">${q.aanbetaling ? `Bij akkoord ontvang je een aanbetalingsfactuur van 50% (${eur(c.tot / 2)}). ` : ''}Akkoord geven kan online met één klik.</div>`}
         <div class="tiny muted doc-foot">Voorbeelddocument – fictieve gegevens</div>
       </div>`;
@@ -1336,7 +1336,7 @@
   function viewSettings() {
     const st = S.settings;
     const plans = [
-      { naam: 'Basis', prijs: 24, f: ['Onbeperkt projecten & klanten', 'Klantportaal met jouw logo', 'Offertes & facturen met iDEAL-betaallink', ['Offertes digitaal laten ondertekenen'], ['Callsheets per opnamedag'], ['Agenda-koppeling (Outlook & Google)'], 'Uren, kilometers & urencriterium', '250 GB opslag', 'Soevereine hosting in de EU · AVG-proof'] },
+      { naam: 'Basis', prijs: 24, f: ['Onbeperkt projecten & klanten', 'Klantportaal met jouw logo', 'Offertes & facturen met betaallink (iDEAL | Wero)', ['Offertes digitaal laten ondertekenen'], ['Callsheets per opnamedag'], ['Agenda-koppeling (Outlook & Google)'], 'Uren, kilometers & urencriterium', '250 GB opslag', 'Soevereine hosting in de EU · AVG-proof'] },
       { naam: 'Pro', prijs: 39, f: ['Alles uit Basis, incl. digitaal ondertekenen, callsheets & agenda-koppeling', ['Timer voor uren'], ['Ondertiteling & transcriptie (verwerkt in de EU)'], 'Review met feedback op timecode', 'Showreel-site op eigen domein', 'Boekhoudkoppelingen', 'Freelancers & projectmarge', '2 TB opslag', 'Soevereine hosting in de EU · AVG-proof'] }
     ];
     return `
@@ -1405,7 +1405,7 @@
   function viewNotFound() { return `<div class="empty card">${icon('search')}<h2>Pagina niet gevonden</h2><p class="muted">Deze pagina bestaat niet in het prototype.</p><a class="btn primary" href="#/dashboard">Naar dashboard</a></div>`; }
 
   // ---------- Info-menu, versie, nieuws & support (demo, bewaard in localStorage) ----------
-  const APP_VERSIE = '0.4.1', APP_BUILD = '2026-10-03';
+  const APP_VERSIE = '0.4.2', APP_BUILD = '2026-10-03';
   const NEWS_KEY = 'diafragmo-nieuws-gelezen', TICKETS_KEY = 'diafragmo-tickets';
   const versieLabel = () => `Versie ${APP_VERSIE} (prototype)`;
   const buildLabel = () => `build ${fdate(APP_BUILD)}`;
@@ -1414,6 +1414,9 @@
   const fdt = s => { const d = new Date(s); return isNaN(d) ? esc(s) : `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${p2(d.getHours())}:${p2(d.getMinutes())}`; };
   const fdtShort = s => { const d = new Date(s); if (isNaN(d)) return esc(s); const n = new Date(); return d.toDateString() === n.toDateString() ? `vandaag ${p2(d.getHours())}:${p2(d.getMinutes())}` : `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
   const CHANGELOG = [
+    { v: '0.4.2', datum: '2026-10-03', items: [
+      ['euro', 'Betalen via iDEAL | Wero', 'Online betalen heet nu iDEAL | Wero, de officiële naam die ook Mollie gebruikt. Op facturen, in het klantportaal en in je e-mailsjablonen staat de nieuwe naam; je klanten betalen precies zoals ze gewend zijn.']
+    ] },
     { v: '0.4.1', datum: '2026-10-03', items: [
       ['link', 'E-mail en agenda nu in één koppeling (Microsoft 365 of Google)', 'Eén keer inloggen en één toestemmingsscherm: daarna werken e-mail en agenda allebei. Per account zet je E-mail en Agenda los aan of uit; ontkoppelen stopt beide. Bestaande koppelingen zijn automatisch overgezet.']
     ] },
@@ -1539,7 +1542,7 @@
     modal({
       title: 'Over Diafragmo', body: `<div class="about">
         <div class="about-head"><img class="about-icon" src="img/app-icoon.svg" alt=""><div><div class="about-name">diafragmo</div><div class="small muted">${versieLabel()} · ${buildLabel()}</div></div></div>
-        <p>Diafragmo is projectbeheer voor zelfstandige videomakers: van aanvraag en offerte via draaidagen en review op timecode tot oplevering en factuur met iDEAL – in één overzicht, met een eigen klantportaal voor je klanten.</p>
+        <p>Diafragmo is projectbeheer voor zelfstandige videomakers: van aanvraag en offerte via draaidagen en review op timecode tot oplevering en factuur met iDEAL | Wero – in één overzicht, met een eigen klantportaal voor je klanten.</p>
         <p class="small">Gemaakt door <a class="link" href="https://noorderwind.app" target="_blank" rel="noopener">Noorderwind Studio</a>.</p>
         <div class="about-eu">${euBadge('eu-flag')}<span><strong>Soevereine hosting in de EU</strong> – je video's, bestanden en klantgegevens blijven in Europa.</span></div>
         <ul class="about-links">
@@ -1729,7 +1732,7 @@
   }
   function upgradeModal(f) {
     const rows = [
-      ['Projecten, klantportaal, offertes & facturen met iDEAL', 1, 1],
+      ['Projecten, klantportaal, offertes & facturen met iDEAL | Wero', 1, 1],
       ['Offertes digitaal laten ondertekenen', 1, 1, 1],
       ['Callsheets per opnamedag', 1, 1, 1],
       ['Agenda-koppeling (Outlook & Google Agenda)', 1, 1, 1],
@@ -2452,7 +2455,7 @@
       const banks = ['ABN AMRO', 'ING', 'Rabobank', 'SNS', 'ASN Bank', 'Triodos Bank', 'bunq', 'Knab', 'RegioBank'];
       const id = el.dataset.id;
       modal({
-        title: 'Betalen met iDEAL (demo)',
+        title: 'Betalen met iDEAL | Wero (demo)',
         body: `<p class="small muted">Kies je bank. Dit is een nagebootste betaalstap – er wordt niets afgeschreven.</p><div class="banks">${banks.map((b, i) => `<label class="bank"><input type="radio" name="bank" value="${b}" ${i === 1 ? 'checked' : ''}><span>${b}</span></label>`).join('')}</div>`,
         actions: [{ label: 'Annuleren', cls: 'ghost', onClick: closeModal }, {
           label: 'Naar mijn bank', cls: 'ideal', onClick: () => {

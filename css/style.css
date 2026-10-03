@@ -84,8 +84,8 @@ body.external-mode #external { display: block; }
 .btn.brand-btn:hover { filter: brightness(1.05); }
 .btn.ideal { background: #cc0066; border-color: #cc0066; color: #fff; }
 .btn.ideal:hover { background: #b3005a; }
-.ideal-logo { display: inline-grid; place-items: center; width: 24px; height: 20px; background: #fff; color: #cc0066; border-radius: 4px; font-weight: 800; font-size: 11px; }
-.doc-pay .ideal-logo { background: #cc0066; color: #fff; }
+.pay-pill { display: inline-flex; align-items: center; flex: none; padding: 1px 8px; border-radius: 99px; background: #fff; color: #cc0066; font-weight: 800; font-size: 11.5px; line-height: 18px; white-space: nowrap; }
+.doc-pay .pay-pill { background: #cc0066; color: #fff; }
 .icon-btn { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; border: 1px solid transparent; background: transparent; cursor: pointer; color: var(--muted); }
 .icon-btn:hover { background: var(--hover); color: var(--ink); }
 .icon-btn:disabled { opacity: .3; cursor: default; }

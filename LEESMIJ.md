@@ -10,7 +10,7 @@ Dubbelklik op `index.html` (werkt direct vanaf schijf) of start `python3 -m http
 - `#/projecten` en `#/project/p1/planning|callsheet|shotlist|bestanden|feedback|email|uren|financien`
 - `#/project/p4/callsheet`: volledig ingevulde callsheet (locatie, call time, tijdsplanning, crew, shotlist, notities); delen en PDF via het printvenster
 - `#/review/p1/v3`: videospeler, opmerkingen op timecode, wisselen tussen v1/v2/v3, goedkeuren; Ondertitels maken (Pro): transcript, ondertitels in de speler, .srt-download
-- `#/klant/p1`: klantportaal (iDEAL-demo → `#/klant/p1/betaald`)
+- `#/klant/p1`: klantportaal (betalen met iDEAL | Wero, demo → `#/klant/p1/betaald`)
 - `#/klant/p5/offerte`: offerte digitaal ondertekenen (naam, handtekening, akkoord) → offerte Geaccepteerd, project naar Pre-productie, 30% aanbetalingsfactuur als concept
 - `#/financien`: offerte- en factuurbouwer met live totalen
 - `#/showreel` en `#/showreel/live`: showreel-editor en publieke pagina met aanvraagformulier
