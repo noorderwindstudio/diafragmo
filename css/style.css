@@ -1263,6 +1263,12 @@ textarea.cs-in { resize: vertical; line-height: 1.45; }
 .lang-setting .tiny { margin-top: 8px; }
 .lang-seg button { display: inline-flex; align-items: center; gap: 6px; }
 .lang-seg .lang-code { font-size: 10.5px; font-weight: 800; opacity: .7; }
+/* 0.5.1: Automatisch (op basis van land) + gedetecteerd land */
+.lang-seg { display: inline-grid; grid-template-columns: repeat(3, auto); max-width: 100%; }
+.lang-seg .lang-auto { grid-column: 1 / -1; justify-content: center; }
+.lang-seg .ic { width: 14px; height: 14px; flex: none; }
+.lang-setting .lang-detected { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; color: var(--ink-2); }
+.lang-setting .lang-detected .ic { width: 15px; height: 15px; color: var(--accent); flex: none; }
 .pay-hint:empty { display: none; }
 /* Langere (Duitse) teksten: niets laten uitsteken */
 .topbar h1, .topbar .crumb, .topbar-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

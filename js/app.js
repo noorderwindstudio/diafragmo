@@ -172,23 +172,36 @@
   function themeSettingsHtml() {
     const pref = themePref();
     const opts = [['light', L('theme.light'), 'sun'], ['dark', L('theme.dark'), 'moon'], ['system', L('theme.system'), 'monitor']];
-    const lg = I.lang();
+    const lg = I.lang(), auto = I.isAuto();
     return `<div class="card-head mt"><h2>${L('set.appearance')}</h2></div>
           <div class="seg theme-seg" role="group" aria-label="${esc(L('set.appearance'))}">${opts.map(o => `<button type="button" class="${pref === o[0] ? 'active' : ''}" data-action="set-theme" data-v="${o[0]}" aria-pressed="${pref === o[0]}">${icon(o[2])}${o[1]}</button>`).join('')}</div>
           <p class="tiny muted theme-note" id="theme-note">${themeNote(pref, themeEffective(pref))}</p>
           <div class="lang-setting" id="taal">
             <div class="lbl-txt">${icon('globe')}<span>${L('lang.label')}</span></div>
-            <div class="seg lang-seg" role="group" aria-label="${esc(L('lang.label'))}">${I.langs.map(l => `<button type="button" class="${lg === l ? 'active' : ''}" data-action="set-lang" data-v="${l}" lang="${l}" aria-pressed="${lg === l}"><span class="lang-code">${l.toUpperCase()}</span>${esc(I.names[l])}</button>`).join('')}</div>
+            <div class="seg lang-seg" role="group" aria-label="${esc(L('lang.label'))}"><button type="button" class="lang-auto${auto ? ' active' : ''}" data-action="set-lang" data-v="auto" aria-pressed="${auto}">${icon('sparkle')}${esc(L('lang.auto'))}</button>${I.langs.map(l => { const on = !auto && lg === l; return `<button type="button" class="${on ? 'active' : ''}" data-action="set-lang" data-v="${l}" lang="${l}" aria-pressed="${on}"><span class="lang-code">${l.toUpperCase()}</span>${esc(I.names[l])}</button>`; }).join('')}</div>
+            <p class="small lang-detected" id="lang-detected">${auto ? langDetectedHtml() : esc(L('lang.manual'))}</p>
             <p class="tiny muted">${L('lang.note')}</p>
           </div>`;
   }
-  // ---------- Taal (0.5.0) ----------
+  // 0.5.1: “Gedetecteerd: Nederland → Nederlands” in de huidige UI-taal (landnaam via Intl.DisplayNames)
+  function countryName(cc) {
+    if (!cc) return L('lang.otherCountry');
+    try { if (Intl.DisplayNames) return new Intl.DisplayNames([I.locale()], { type: 'region' }).of(cc) || cc; } catch (e) { /* onbekende code */ }
+    return cc;
+  }
+  function langDetectedHtml() {
+    const d = I.detectInfo(true);
+    return `${icon('check')}<span>${esc(L('lang.detected', { c: countryName(d.country), l: I.names[d.lang] }))}${d.simulated ? ` <span class="tiny muted">(${esc(L('lang.simulated', { cc: d.country }))})</span>` : ''}</span>`;
+  }
+  // ---------- Taal (0.5.0; automatisch op basis van land vanaf 0.5.1, zie js/land.js) ----------
   // Wisselen vertaalt de vaste HTML (i18n.js) en tekent de huidige weergave opnieuw; alle demo-status blijft in het geheugen.
-  function setLang(l) { if (!I.setLang(l)) return; }
-  document.addEventListener('diafragmo:lang', () => {
+  // 0.5.1: data-v="auto" = Automatisch (op basis van land): wist de handmatige keuze; NL/DE/EN zet een handmatige keuze vast.
+  function setLang(l) { if (l === 'auto') I.setAuto(); else I.setLang(l); }
+  document.addEventListener('diafragmo:lang', e => {
+    const d = (e && e.detail) || {};
     applyTheme(false); updateInfoBadges();
     renderKeep();
-    toast(L('lang.switched'));
+    toast(d.auto ? L('lang.autoOn', { l: I.names[I.lang()] }) : L('lang.switched'));
   });
 
   // EU-sterrencirkel (12 sterren) als inline SVG
@@ -1494,7 +1507,7 @@
   function viewNotFound() { return `<div class="empty card">${icon('search')}<h2>${L('nf.title')}</h2><p class="muted">${L('nf.text')}</p><a class="btn primary" href="#/dashboard">${L('nf.back')}</a></div>`; }
 
   // ---------- Info-menu, versie, nieuws & support (demo, bewaard in localStorage) ----------
-  const APP_VERSIE = '0.5.0', APP_BUILD = '2026-10-06';
+  const APP_VERSIE = '0.5.1', APP_BUILD = '2026-10-06';
   const NEWS_KEY = 'diafragmo-nieuws-gelezen', TICKETS_KEY = 'diafragmo-tickets';
   const versieLabel = () => L('info.version', { v: APP_VERSIE });
   const buildLabel = () => L('info.build', { d: fdate(APP_BUILD) });
@@ -1504,6 +1517,7 @@
   const fdtShort = s => { const d = new Date(s); if (isNaN(d)) return esc(s); const n = new Date(); return d.toDateString() === n.toDateString() ? L('info.todayAt', { t: Fx.time(d) }) : Fx.dayMonth(d); };
   // Changelog: teksten in het woordenboek (cl.<versie>.<n>.t / .d); [icoon, sleutel, pro]
   const CHANGELOG = [
+    { v: '0.5.1', datum: '2026-10-06', items: [['globe', 'cl.051.1']] },
     { v: '0.5.0', datum: '2026-10-06', items: [['globe', 'cl.050.1']] },
     { v: '0.4.4', datum: '2026-10-03', items: [['check', 'cl.044.1']] },
     { v: '0.4.3', datum: '2026-10-03', items: [['send', 'cl.043.1']] },

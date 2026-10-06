@@ -6,9 +6,21 @@ Front-end-only prototype voor zzp-videomakers. **Alle data is fictief (voorbeeld
 Dubbelklik op `index.html` (werkt direct vanaf schijf) of start `python3 -m http.server` in deze map en ga naar http://localhost:8000.
 
 ## Talen: Nederlands, Deutsch, English (vanaf 0.5.0)
-Versie **0.5.0** (build 6 okt 2026). De app is beschikbaar in het Nederlands (standaard), Duits en Engels.
+Versie **0.5.1** (build 6 okt 2026). De app is beschikbaar in het Nederlands, Duits en Engels.
 - **Wisselen**: met de wereldbol + NL/DE/EN naast de themaknop in de bovenbalk, of via Instellingen → Weergave → “Taal / Sprache / Language” (`#/instellingen`, anker `#taal`). Wisselen tekent de huidige weergave opnieuw; alle demo-stand blijft staan.
-- **Standaard**: de taal van je browser als die Duits of Engels is, anders Nederlands. Je keuze staat in `localStorage` (sleutel `diafragmo-taal`) en wordt vóór de eerste weergave toegepast; `<html lang>` volgt de gekozen taal.
+- **Standaard (vanaf 0.5.1): automatisch op basis van land**, optie “Automatisch (op basis van land)” in Instellingen → Weergave, met daaronder bijv. “Gedetecteerd: Nederland → Nederlands”. Een handmatige keuze (NL/DE/EN, in Instellingen of de bovenbalk) staat in `localStorage` (sleutel `diafragmo-taal`) en wint altijd; “Automatisch” wist die keuze weer. De taal wordt vóór de eerste weergave toegepast; `<html lang>` volgt de gekozen taal.
+
+### Automatische taal op basis van land (vanaf 0.5.1)
+Alle logica zit in één functie, `DiafragmoLand.detect()` in `js/land.js`. Dat bestand wordt synchroon in `<head>` geladen en gebruikt door het inline script (taal vóór de eerste weergave) én door `js/i18n.js`/`app.js`. **Er wordt geen externe dienst aangeroepen** (geen IP-geolocatie zoals ipapi; die zijn meestal Amerikaans en zouden IP-adressen van bezoekers bij derden leggen). Volgorde:
+1. Handmatig gekozen taal in `localStorage` wint altijd.
+2. Tijdzone (`Intl.DateTimeFormat().resolvedOptions().timeZone`) → land: Europe/Amsterdam → NL, Europe/Brussels → BE, Europe/Berlin en Europe/Busingen → DE, Europe/Vienna → AT, Europe/Zurich → CH, Europe/Vaduz → LI, Europe/Luxembourg → LU, America/Curacao/Aruba/Kralendijk/Lower_Princes → Caribisch deel van het Koninkrijk (CW/AW/BQ/SX, telt als NL). Elke andere tijdzone = overig land.
+3. Regio-subtag uit `navigator.languages` (nl-BE, de-AT, en-GB …): tweede signaal, en het eerste signaal als de tijdzone ontbreekt of dubbelzinnig is (UTC, `Etc/…`). Binnen tijdzones die in de tz-database aan elkaar gelinkt zijn (Amsterdam/Brussel/Luxemburg, Zürich/Vaduz) wint de regio van de browser.
+
+Land → taal: NL en Caribisch Nederland → nl; DE, AT, LI → de; CH → de, behalve bij browsertaal fr of it → en; LU → de, behalve als de browser nl of en verkiest; BE → nl bij browsertaal nl, de bij browsertaal de (Oost-België), anders en (Wallonië; geen Frans beschikbaar); alle andere landen → en.
+
+**Testhaak**: `?land=DE` (ook NL, BE, AT, CH, LU, US, …) simuleert het land voor demo/test, bijv. `index.html?land=CH#/instellingen`. Wordt niet als handmatige keuze bewaard (een bestaande handmatige keuze wint nog steeds; kies eerst “Automatisch”).
+
+**Productie (alleen toelichting, niet gebouwd)**: de (in de EU gehoste) server kan het land daarnaast bepalen met een lokaal gehoste GeoIP-database, bijv. DB-IP Lite of MaxMind GeoLite2 self-hosted, die periodiek als bestand wordt bijgewerkt en op de eigen server wordt opgevraagd. Zo blijven er geen aanroepen naar derden en verlaat het IP-adres van de bezoeker de eigen EU-infrastructuur niet. De client-signalen hierboven blijven dan de terugval (en een handmatige keuze wint altijd).
 - **Opbouw**: alle UI-teksten staan in `js/i18n.js` (woordenboeken nl/de/en per sleutel, helper `t(key, vars)`, in `app.js` als `L()`). Bedragen, datums en getallen gaan via `Intl` (nl-NL / de-DE / en-GB). Interne waarden (statussen, plannen, ticketstatussen) blijven Nederlands; alleen de weergave wordt vertaald (`dc()` voor fictieve voorbeelddata).
 - **Terminologie**: Duits in de je-vorm (du), Engels Brits. urencriterium → *Stundenkriterium (NL-Steuerregel)* / *Hours criterion (Dutch tax rule)*; KvK → *Handelsregister (KvK)* / *Chamber of Commerce (KvK)*; btw → *USt.* / *VAT*; draaiboek → *Drehplan* / *schedule*. iDEAL | Wero en Tikkie blijven productnamen, met waar nodig een hint dat het Nederlandse betaalmethoden zijn.
 - **Blijft Nederlands**: fictieve klant- en bedrijfsnamen, adressen en bestandsnamen, het demo-transcript (de brontaal van de video is Nederlands), en tekst die je zelf typt. Projecttitels worden in DE/EN wél vertaald weergegeven (bijv. “Bedrijfsfilm 75 jaar” → “Imagefilm 75 Jahre” / “Corporate film: 75 years”).

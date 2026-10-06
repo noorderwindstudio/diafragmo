@@ -6,6 +6,7 @@
      Onbekende tekst (wat de gebruiker zelf typt, namen, adressen) blijft ongewijzigd.
    - F: opmaak via Intl in nl-NL / de-DE / en-GB (€ blijft overal de valuta).
    - setLang(l): wisselt de taal, bewaart de keuze (localStorage 'diafragmo-taal') en stuurt 'diafragmo:lang'.
+   - setAuto(): wist de handmatige keuze en volgt weer het land (js/land.js); isAuto() / detectInfo() voor Instellingen.
    Woordenboekregels: add({ sleutel: [nl, de, en] }); demo-inhoud: addV({ 'Nederlandse tekst': [de, en] }). */
 (function () {
   'use strict';
@@ -14,11 +15,12 @@
   var IDX = { nl: 0, de: 1, en: 2 };
   var LOCALE = { nl: 'nl-NL', de: 'de-DE', en: 'en-GB' };
   var NAMES = { nl: 'Nederlands', de: 'Deutsch', en: 'English' };
-  function detect() {
-    var l = (navigator.languages && navigator.languages[0]) || navigator.language || 'nl';
-    l = String(l).slice(0, 2).toLowerCase();
-    return l === 'de' || l === 'en' ? l : 'nl';
+  // 0.5.1: automatische taal op basis van land via de gedeelde functie in js/land.js (dezelfde als het inline script in <head>)
+  function detectInfo(ignoreStored) {
+    if (window.DiafragmoLand) return window.DiafragmoLand.detect({ ignoreStored: !!ignoreStored });
+    return { lang: 'en', auto: true, country: null, source: 'default', tz: '', region: null, browserLang: '', simulated: false };
   }
+  function detect() { return detectInfo(true).lang; }
   function stored() { try { var v = localStorage.getItem(KEY); return LANGS.indexOf(v) >= 0 ? v : null; } catch (e) { return null; } }
   var lang = stored() || detect();
 
@@ -94,8 +96,14 @@
     'theme.note.saved': ['Je keuze wordt op dit apparaat onthouden.', 'Deine Auswahl wird auf diesem Gerät gespeichert.', 'Your choice is remembered on this device.'],
     'set.appearance': ['Weergave', 'Darstellung', 'Appearance'],
     'lang.label': ['Taal / Sprache / Language', 'Taal / Sprache / Language', 'Taal / Sprache / Language'],
-    'lang.note': ['Standaard volgt Diafragmo de taal van je browser (Duits of Engels), anders Nederlands. Je keuze wordt op dit apparaat onthouden.', 'Standardmäßig folgt Diafragmo der Sprache deines Browsers (Deutsch oder Englisch), sonst Niederländisch. Deine Auswahl wird auf diesem Gerät gespeichert.', 'By default Diafragmo follows your browser language (German or English), otherwise Dutch. Your choice is remembered on this device.'],
-    'lang.switched': ['Taal: Nederlands', 'Sprache: Deutsch', 'Language: English']
+    'lang.note': ['De taal wordt bepaald op basis van je tijdzone en browserinstellingen, zonder dat je locatie wordt opgevraagd of gedeeld. Kies je zelf een taal, dan wordt die op dit apparaat onthouden.', 'Die Sprache wird anhand deiner Zeitzone und Browsereinstellungen bestimmt, ohne dass dein Standort abgefragt oder weitergegeben wird. Wählst du selbst eine Sprache, wird sie auf diesem Gerät gespeichert.', 'The language is determined from your time zone and browser settings, without your location being requested or shared. If you choose a language yourself, it is remembered on this device.'],
+    'lang.switched': ['Taal: Nederlands', 'Sprache: Deutsch', 'Language: English'],
+    'lang.auto': ['Automatisch (op basis van land)', 'Automatisch (nach Land)', 'Automatic (based on country)'],
+    'lang.detected': ['Gedetecteerd: {c} → {l}', 'Erkannt: {c} → {l}', 'Detected: {c} → {l}'],
+    'lang.otherCountry': ['ander land', 'anderes Land', 'other country'],
+    'lang.simulated': ['gesimuleerd via ?land={cc}', 'simuliert über ?land={cc}', 'simulated via ?land={cc}'],
+    'lang.manual': ['Handmatig gekozen. Kies “Automatisch” om de taal weer op basis van je land te kiezen.', 'Manuell gewählt. Wähle „Automatisch“, damit die Sprache wieder nach deinem Land gewählt wird.', 'Chosen manually. Pick “Automatic” to have the language chosen by your country again.'],
+    'lang.autoOn': ['Taal: automatisch ({l})', 'Sprache: automatisch ({l})', 'Language: automatic ({l})']
   });
 
   // ===== Dashboard & projecten =====
@@ -696,6 +704,8 @@
 
   // ===== Changelog =====
   add({
+    'cl.051.1.t': ['Taal wordt automatisch gekozen op basis van je land', 'Sprache wird automatisch nach deinem Land gewählt', 'Language is chosen automatically based on your country'],
+    'cl.051.1.d': ['Nederland en het Caribisch deel van het Koninkrijk krijgen Nederlands, Duitsland, Oostenrijk en Liechtenstein Duits, Zwitserland en Luxemburg meestal Duits, België Nederlands, Duits of Engels (afhankelijk van je browsertaal) en de rest Engels. Het land wordt afgeleid uit je tijdzone en browserinstellingen, zonder dat je locatie wordt opgevraagd of gedeeld. Kies je zelf een taal, dan blijft die staan; via Instellingen → Weergave → “Automatisch” zet je het terug.', 'Die Niederlande und der karibische Teil des Königreichs bekommen Niederländisch, Deutschland, Österreich und Liechtenstein Deutsch, die Schweiz und Luxemburg meist Deutsch, Belgien je nach Browsersprache Niederländisch, Deutsch oder Englisch und alle anderen Englisch. Das Land wird aus deiner Zeitzone und deinen Browsereinstellungen abgeleitet, ohne dass dein Standort abgefragt oder weitergegeben wird. Wählst du selbst eine Sprache, bleibt sie bestehen; unter Einstellungen → Darstellung → „Automatisch“ stellst du es zurück.', 'The Netherlands and the Caribbean part of the Kingdom get Dutch; Germany, Austria and Liechtenstein get German, Switzerland and Luxembourg mostly German; Belgium gets Dutch, German or English depending on your browser language; everyone else gets English. The country is derived from your time zone and browser settings, without your location being requested or shared. If you choose a language yourself, it sticks; Settings → Appearance → “Automatic” switches back.'],
     'cl.050.1.t': ['App beschikbaar in het Duits en Engels', 'App auf Deutsch und Englisch verfügbar', 'App available in German and English'],
     'cl.050.1.d': ['Kies Nederlands, Deutsch of English met de wereldbol in de topbalk of via Instellingen → Weergave. Je keuze wordt onthouden. Bedragen, datums en getallen volgen de gekozen taal, net als het klantportaal en de standaard e-mailsjablonen.', 'Wähle Nederlands, Deutsch oder English über die Weltkugel in der oberen Leiste oder unter Einstellungen → Darstellung. Deine Wahl wird gespeichert. Beträge, Daten und Zahlen folgen der gewählten Sprache, ebenso das Kundenportal und die Standard-E-Mail-Vorlagen.', 'Choose Nederlands, Deutsch or English with the globe in the top bar or via Settings → Appearance. Your choice is remembered. Amounts, dates and numbers follow the chosen language, as do the client portal and the default email templates.'],
     'cl.044.1.t': ['Factuurstatus overal gelijk in project en overzicht', 'Rechnungsstatus überall gleich in Projekt und Übersicht', 'Invoice status consistent in project and overview'],
@@ -1452,17 +1462,31 @@
     var md = document.querySelector('meta[name="description"]'); if (md && has('meta.desc')) md.setAttribute('content', t('meta.desc'));
     q('[data-lang-btn]').forEach(function (b) { var on = b.getAttribute('data-lang-btn') === lang; b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); });
   }
+  // Handmatige keuze: ook dezelfde taal als de automatische wordt dan vastgezet (overschrijft de automatische keuze)
   function setLang(l) {
-    if (LANGS.indexOf(l) < 0 || l === lang) return false;
+    if (LANGS.indexOf(l) < 0 || (l === lang && stored() === l)) return false;
+    var changed = l !== lang;
     lang = l;
     try { localStorage.setItem(KEY, l); } catch (e) { /* privémodus: alleen voor deze sessie */ }
     applyStatic();
-    try { document.dispatchEvent(new CustomEvent('diafragmo:lang', { detail: { lang: l } })); } catch (e) { /* oude browser */ }
+    try { document.dispatchEvent(new CustomEvent('diafragmo:lang', { detail: { lang: l, auto: false, changed: changed } })); } catch (e) { /* oude browser */ }
     return true;
   }
+  // Automatisch (op basis van land): handmatige keuze wissen en de gedetecteerde taal toepassen
+  function setAuto() {
+    var was = stored();
+    try { localStorage.removeItem(KEY); } catch (e) { /* noop */ }
+    var l = detect(), changed = l !== lang;
+    if (!was && !changed) return false;
+    lang = l;
+    applyStatic();
+    try { document.dispatchEvent(new CustomEvent('diafragmo:lang', { detail: { lang: l, auto: true, changed: changed } })); } catch (e) { /* oude browser */ }
+    return true;
+  }
+  function isAuto() { return !stored(); }
 
   window.I18N = {
-    t: t, L: t, Ln: Ln, dc: dc, has: has, F: F, applyStatic: applyStatic, setLang: setLang,
+    t: t, L: t, Ln: Ln, dc: dc, has: has, F: F, applyStatic: applyStatic, setLang: setLang, setAuto: setAuto, isAuto: isAuto, detectInfo: detectInfo,
     lang: function () { return lang; }, langs: LANGS, names: NAMES, dict: DICT, locale: function () { return LOCALE[lang]; },
     stored: stored, KEY: KEY, _missing: missing
   };
