@@ -11,46 +11,54 @@
     (function () { var t = null; try { t = localStorage.getItem('diafragmo-thema'); } catch (e) {}
       if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       document.documentElement.setAttribute('data-theme', t); })();</script>
+  <script>/* Taal vóór de eerste weergave (0.5.0): opgeslagen keuze, anders browsertaal als die Duits of Engels is, anders Nederlands.
+       Bij Duits/Engels blijft de pagina even onzichtbaar tot js/i18n.js de vaste teksten heeft vertaald (geen Nederlandse flits). */
+    (function () { var l = null; try { l = localStorage.getItem('diafragmo-taal'); } catch (e) {}
+      if (l !== 'nl' && l !== 'de' && l !== 'en') { l = String((navigator.languages && navigator.languages[0]) || navigator.language || 'nl').slice(0, 2).toLowerCase(); if (l !== 'de' && l !== 'en') l = 'nl'; }
+      var r = document.documentElement; r.setAttribute('lang', l);
+      if (l !== 'nl') { r.classList.add('i18n-wait'); setTimeout(function () { r.classList.remove('i18n-wait'); }, 3000); } })();</script>
+  <style>html.i18n-wait body { visibility: hidden; }</style>
   <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
-  <link rel="stylesheet" href="css/style.css?v=20261003g">
+  <link rel="stylesheet" href="css/style.css?v=20261006a">
 </head>
 <body>
-  <div class="proto-banner" role="note"><strong>Prototype – voorbeelddata</strong><span class="hide-sm"> · alle namen, bedragen en bestanden zijn fictief · Made with ❤️ by Noorderwind Studio</span></div>
+  <div class="proto-banner" role="note"><strong data-i18n="banner.title">Prototype – voorbeelddata</strong><span class="hide-sm" data-i18n="banner.sub"> · alle namen, bedragen en bestanden zijn fictief · Made with ❤️ by Noorderwind Studio</span></div>
 
   <div id="app">
-    <aside id="sidebar" aria-label="Hoofdmenu">
-      <a class="logo" href="#/dashboard" aria-label="Diafragmo – naar dashboard"><img class="logo-img" src="img/beeldmerk.svg" alt=""><span>diafragmo</span></a>
+    <aside id="sidebar" aria-label="Hoofdmenu" data-i18n-attr="aria-label:nav.main">
+      <a class="logo" href="#/dashboard" aria-label="Diafragmo – naar dashboard" data-i18n-attr="aria-label:nav.logo"><img class="logo-img" src="img/beeldmerk.svg" alt=""><span>diafragmo</span></a>
       <nav class="nav">
-        <a class="nav-item" data-nav="dashboard" data-ic="home" href="#/dashboard"><span>Dashboard</span></a>
-        <a class="nav-item" data-nav="projecten" data-ic="folder" href="#/projecten"><span>Projecten</span></a>
-        <a class="nav-item" data-nav="review" data-ic="play" href="#/review/p1"><span>Review</span><em class="nav-badge">3</em></a>
-        <a class="nav-item" data-nav="financien" data-ic="euro" href="#/financien"><span>Offertes & facturen</span></a>
-        <a class="nav-item" data-nav="showreel" data-ic="film" href="#/showreel"><span>Showreel</span></a>
-        <a class="nav-item" data-nav="klant" data-ic="eye" href="#/klant/p1"><span>Klantportaal</span></a>
-        <a class="nav-item" data-nav="instellingen" data-ic="settings" href="#/instellingen"><span>Instellingen</span></a>
+        <a class="nav-item" data-nav="dashboard" data-ic="home" href="#/dashboard"><span data-i18n="nav.dashboard">Dashboard</span></a>
+        <a class="nav-item" data-nav="projecten" data-ic="folder" href="#/projecten"><span data-i18n="nav.projects">Projecten</span></a>
+        <a class="nav-item" data-nav="review" data-ic="play" href="#/review/p1"><span data-i18n="nav.review">Review</span><em class="nav-badge">3</em></a>
+        <a class="nav-item" data-nav="financien" data-ic="euro" href="#/financien"><span data-i18n="nav.finance">Offertes & facturen</span></a>
+        <a class="nav-item" data-nav="showreel" data-ic="film" href="#/showreel"><span data-i18n="nav.showreel">Showreel</span></a>
+        <a class="nav-item" data-nav="klant" data-ic="eye" href="#/klant/p1"><span data-i18n="nav.portal">Klantportaal</span></a>
+        <a class="nav-item" data-nav="instellingen" data-ic="settings" href="#/instellingen"><span data-i18n="nav.settings">Instellingen</span></a>
       </nav>
       <div class="side-foot">
         <div class="me"><span class="avatar">SV</span><div><div class="strong">Sanne de Vries</div><div class="tiny">Sanne de Vries Video · Pro</div></div></div>
-        <a class="eu-side" href="#/instellingen/hosting" title="Soevereine hosting in de EU – je data blijft in Europa"><svg class="eu-flag" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#003399"/><g fill="#ffcc00"><circle cx="19.00" cy="12.00" r="1.35"/><circle cx="18.06" cy="15.50" r="1.35"/><circle cx="15.50" cy="18.06" r="1.35"/><circle cx="12.00" cy="19.00" r="1.35"/><circle cx="8.50" cy="18.06" r="1.35"/><circle cx="5.94" cy="15.50" r="1.35"/><circle cx="5.00" cy="12.00" r="1.35"/><circle cx="5.94" cy="8.50" r="1.35"/><circle cx="8.50" cy="5.94" r="1.35"/><circle cx="12.00" cy="5.00" r="1.35"/><circle cx="15.50" cy="5.94" r="1.35"/><circle cx="18.06" cy="8.50" r="1.35"/></g></svg><span>EU-hosting</span></a>
-        <div class="tiny made">Made with ❤️ by Noorderwind Studio</div>
+        <a class="eu-side" href="#/instellingen/hosting" title="Soevereine hosting in de EU – je data blijft in Europa" data-i18n-attr="title:nav.euTitle"><svg class="eu-flag" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#003399"/><g fill="#ffcc00"><circle cx="19.00" cy="12.00" r="1.35"/><circle cx="18.06" cy="15.50" r="1.35"/><circle cx="15.50" cy="18.06" r="1.35"/><circle cx="12.00" cy="19.00" r="1.35"/><circle cx="8.50" cy="18.06" r="1.35"/><circle cx="5.94" cy="15.50" r="1.35"/><circle cx="5.00" cy="12.00" r="1.35"/><circle cx="5.94" cy="8.50" r="1.35"/><circle cx="8.50" cy="5.94" r="1.35"/><circle cx="12.00" cy="5.00" r="1.35"/><circle cx="15.50" cy="5.94" r="1.35"/><circle cx="18.06" cy="8.50" r="1.35"/></g></svg><span data-i18n="nav.eu">EU-hosting</span></a>
+        <div class="tiny made" data-i18n="nav.made">Made with ❤️ by Noorderwind Studio</div>
       </div>
     </aside>
     <div class="main">
       <header class="topbar">
-        <button class="icon-btn nav-toggle" data-action="toggle-nav" data-ic="menu" aria-label="Menu openen"></button>
+        <button class="icon-btn nav-toggle" data-action="toggle-nav" data-ic="menu" aria-label="Menu openen" data-i18n-attr="aria-label:top.menu"></button>
         <div class="info-menu" id="info-menu">
-          <button id="info-btn" class="icon-btn info-btn" type="button" data-action="info-toggle" aria-label="Info en support" title="Info en support" aria-haspopup="menu" aria-expanded="false" aria-controls="info-dropdown"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="11"/><line x1="12" y1="7.5" x2="12.01" y2="7.5"/></svg><span class="info-dot" hidden></span></button>
-          <div class="info-dd" id="info-dropdown" role="menu" aria-label="Info en support" hidden></div>
+          <button id="info-btn" class="icon-btn info-btn" type="button" data-action="info-toggle" aria-label="Info en support" title="Info en support" data-i18n-attr="aria-label:top.info;title:top.info" aria-haspopup="menu" aria-expanded="false" aria-controls="info-dropdown"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="11"/><line x1="12" y1="7.5" x2="12.01" y2="7.5"/></svg><span class="info-dot" hidden></span></button>
+          <div class="info-dd" id="info-dropdown" role="menu" aria-label="Info en support" data-i18n-attr="aria-label:top.info" hidden></div>
         </div>
-        <label class="search" data-ic="search"><input id="global-search" type="search" placeholder="Zoek projecten of klanten… (Enter)" aria-label="Zoeken"></label>
+        <label class="search" data-ic="search"><input id="global-search" type="search" placeholder="Zoek projecten of klanten… (Enter)" aria-label="Zoeken" data-i18n-attr="placeholder:top.search;aria-label:top.searchLabel"></label>
         <div class="top-actions">
+          <div class="lang-switch" role="group" aria-label="Taal" data-i18n-attr="aria-label:top.lang" title="Taal / Sprache / Language"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><button type="button" data-action="set-lang" data-v="nl" data-lang-btn="nl" lang="nl" title="Nederlands" aria-label="Nederlands">NL</button><button type="button" data-action="set-lang" data-v="de" data-lang-btn="de" lang="de" title="Deutsch" aria-label="Deutsch">DE</button><button type="button" data-action="set-lang" data-v="en" data-lang-btn="en" lang="en" title="English" aria-label="English">EN</button></div>
           <button id="theme-toggle" class="icon-btn theme-toggle" type="button" data-action="toggle-theme" aria-label="Donker thema" title="Donker thema"><svg class="ic ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><svg class="ic ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></button>
-          <a id="topbar-client" class="btn ghost" data-ic="eye" href="#/klant/p1"><span class="hide-sm">Bekijk als klant</span></a>
-          <button class="btn primary" data-action="new-project" data-ic="plus"><span class="hide-sm">Nieuw project</span></button>
+          <a id="topbar-client" class="btn ghost" data-ic="eye" href="#/klant/p1"><span class="hide-sm" data-i18n="top.client">Bekijk als klant</span></a>
+          <button class="btn primary" data-action="new-project" data-ic="plus"><span class="hide-sm" data-i18n="top.newProject">Nieuw project</span></button>
         </div>
       </header>
       <main id="view" tabindex="-1"></main>
-      <footer class="app-foot">Diafragmo · prototype – voorbeelddata · Made with ❤️ by <a href="https://noorderwind.app" target="_blank" rel="noopener">Noorderwind Studio</a></footer>
+      <footer class="app-foot" data-i18n-html="foot.html">Diafragmo · prototype – voorbeelddata · Made with ❤️ by <a href="https://noorderwind.app" target="_blank" rel="noopener">Noorderwind Studio</a></footer>
     </div>
     <div class="nav-scrim" data-action="toggle-nav"></div>
   </div>
@@ -59,7 +67,8 @@
   <div id="modal-root"></div>
   <div id="toast-root" aria-live="polite"></div>
 
-  <script src="js/data.js?v=20261003g"></script>
-  <script src="js/app.js?v=20261003g"></script>
+  <script src="js/i18n.js?v=20261006a"></script>
+  <script src="js/data.js?v=20261006a"></script>
+  <script src="js/app.js?v=20261006a"></script>
 </body>
 </html>

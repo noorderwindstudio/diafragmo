@@ -5,6 +5,15 @@ Front-end-only prototype voor zzp-videomakers. **Alle data is fictief (voorbeeld
 ## Openen
 Dubbelklik op `index.html` (werkt direct vanaf schijf) of start `python3 -m http.server` in deze map en ga naar http://localhost:8000.
 
+## Talen: Nederlands, Deutsch, English (vanaf 0.5.0)
+Versie **0.5.0** (build 6 okt 2026). De app is beschikbaar in het Nederlands (standaard), Duits en Engels.
+- **Wisselen**: met de wereldbol + NL/DE/EN naast de themaknop in de bovenbalk, of via Instellingen → Weergave → “Taal / Sprache / Language” (`#/instellingen`, anker `#taal`). Wisselen tekent de huidige weergave opnieuw; alle demo-stand blijft staan.
+- **Standaard**: de taal van je browser als die Duits of Engels is, anders Nederlands. Je keuze staat in `localStorage` (sleutel `diafragmo-taal`) en wordt vóór de eerste weergave toegepast; `<html lang>` volgt de gekozen taal.
+- **Opbouw**: alle UI-teksten staan in `js/i18n.js` (woordenboeken nl/de/en per sleutel, helper `t(key, vars)`, in `app.js` als `L()`). Bedragen, datums en getallen gaan via `Intl` (nl-NL / de-DE / en-GB). Interne waarden (statussen, plannen, ticketstatussen) blijven Nederlands; alleen de weergave wordt vertaald (`dc()` voor fictieve voorbeelddata).
+- **Terminologie**: Duits in de je-vorm (du), Engels Brits. urencriterium → *Stundenkriterium (NL-Steuerregel)* / *Hours criterion (Dutch tax rule)*; KvK → *Handelsregister (KvK)* / *Chamber of Commerce (KvK)*; btw → *USt.* / *VAT*; draaiboek → *Drehplan* / *schedule*. iDEAL | Wero en Tikkie blijven productnamen, met waar nodig een hint dat het Nederlandse betaalmethoden zijn.
+- **Blijft Nederlands**: fictieve klant- en bedrijfsnamen, adressen en bestandsnamen, het demo-transcript (de brontaal van de video is Nederlands), en tekst die je zelf typt. Projecttitels worden in DE/EN wél vertaald weergegeven (bijv. “Bedrijfsfilm 75 jaar” → “Imagefilm 75 Jahre” / “Corporate film: 75 years”).
+- **E-mailsjablonen**: niet-aangepaste sjablonen volgen de app-taal; placeholders werken in elke taal (bijv. `{klant}` = `{kunde}` = `{client}`). Een aangepast sjabloon blijft zoals je het schreef.
+
 ## Schermen (hash-routes)
 - `#/dashboard`: lopende projecten, pijplijn, openstaande facturen, feedback die op je wacht, urencriterium
 - `#/projecten` en `#/project/p1/planning|callsheet|shotlist|bestanden|feedback|email|uren|financien`
